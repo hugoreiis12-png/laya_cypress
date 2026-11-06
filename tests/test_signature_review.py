@@ -116,6 +116,17 @@ def test_decision_log_cuts_long_failure_reasons():
     assert len(decision_record(envelope)["erros"][0]["erro"]) == 200
 
 
+def test_judge_prompt_does_not_count_a_stamp_alone_as_signed():
+    sent = []
+
+    def answer(request):
+        sent.append(json.loads(request.content)["messages"][0]["content"][0]["text"])
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"possui_assinatura": false, "confianca": 90}'}}]})
+
+    VisionJudge(load(ENV), httpx.Client(transport=httpx.MockTransport(answer))).assess_signature(b"jpeg", 5.0)
+    assert "Carimbo sozinho" in sent[0] and "NÃO conta" in sent[0] and "carimbo preenchido" not in sent[0]
+
+
 def test_client_reads_the_opinion_and_drops_thinking():
     judge = client('<think>hmm</think>{"possui_assinatura": false, "confianca": 70}')
     assert judge.assess_signature(b"jpeg", 5.0) == SignatureOpinion(False, 70.0)
