@@ -1,0 +1,38 @@
+{
+  "engine": "hf-encoder",
+  "version": "0.0.16",
+  "descricao": "Motor de decisao tipada do ITS-FINE: encoder com escolha por marcador (perguntas choice, noul e score definidas pelo projeto). Aceita qualquer encoder do Hugging Face com token de mascara (cabecas novas) ou um checkpoint de decisao ja treinado (cabecas continuadas); LoRA no encoder, calibra, avalia no ponto de operacao e entrega pacote com consumidor local em CPU.",
+  "perfil": "escolha_por_marcador",
+  "tipos": ["choice", "noul", "score"],
+  "requisitos": {
+    "python": ">=3.10",
+    "pacotes": ["transformers>=5.16,<6", "peft>=0.18,<1", "safetensors>=0.4", "numpy>=1.24,<3"],
+    "torch": "instalado a parte, do indice CUDA correspondente ao driver; a venv e a mesma do hf-peft"
+  },
+  "cabecas_novas": {"head_layers": 2, "n_act": 2, "head_max_len": 192, "max_len": 1024,
+                    "nota": "Encoder sem cabecas de decisao: dois blocos extras e pontuador iniciados com semente fixa; max_len e o menor entre 1024, as posicoes do encoder e o limite do tokenizer."},
+  "defaults": {
+    "lora": {"r": 16, "alpha": 32, "dropout": 0.05, "targets": "auto"},
+    "trainable": ["type_emb", "head", "scorer"],
+    "loss_weights": {},
+    "train": {
+      "epochs": 3, "batch": 4, "grad_accum": 4, "lr": 0.0001, "weight_decay": 0.0, "scheduler": "cosine",
+      "warmup_steps": 5, "seed": 42, "max_seq_length": "auto", "gradient_checkpointing": false,
+      "eval_strategy": "epoch", "save_strategy": "epoch", "save_total_limit": 2
+    },
+    "calibration": {"method": "temperature", "bucket": ["type", "n_options"], "min_support": 30},
+    "justificativa": "r=16 com alpha=2r e o default de LoRA; lr 1e-4 porque a loss e entropia cruzada sobre poucas opcoes e o encoder ja vem pre-treinado. Com cabecas novas a validacao decide se precisa de mais epocas. Batch 4 estados vezes as perguntas rotuladas de cada um; batch efetivo de 16 estados. 3 epocas para poucos milhares de estados. Temperatura por (tipo, numero de opcoes) com 30 exemplos por bucket."
+  },
+  "encaixe": {
+    "bytes_por_parametro": 4.0,
+    "overhead_gb": 1.4,
+    "fator_ativacao": 3,
+    "limites": {"folga": 0.6, "cabe": 0.75, "aperta": 0.9},
+    "nota": "Pesos em fp32 para treinar com LoRA, computo em bf16. Ativacao = estados x perguntas x seq x hidden x camadas x 2 bytes x fator. Estimativa, nao medicao: a sondagem de treino e que decide."
+  },
+  "checkpoints": "catalogo.json",
+  "download": "download.py",
+  "certificacao": "certification.json",
+  "consumidores": ["predict.py", "serve.py"],
+  "fora_da_v1": ["perfil de classificacao separado (AutoModelForSequenceClassification)", "ONNX e int8", "RLCD", "act_head treinavel", "reranker", "ajuste completo sem LoRA"]
+}

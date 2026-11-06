@@ -1,0 +1,12 @@
+{"id": "ex-01", "group_id": "cobranca-a", "state": {"remetente": "Loja Central", "mensagem": "Sua fatura de R$ 120,00 vence hoje. Pague ate as 18h para evitar juros."}, "answers": {"urgente": true, "assunto": "cobranca", "tom": 1}}
+{"id": "ex-02", "group_id": "cobranca-a", "state": {"remetente": "Loja Central", "mensagem": "Lembrete: fatura de R$ 89,90 vence em 10 dias."}, "answers": {"urgente": false, "assunto": "cobranca", "tom": 1}}
+{"id": "ex-03", "group_id": "agenda-b", "state": {"remetente": "Dra. Paula", "mensagem": "Podemos confirmar sua consulta para amanha as 9h?"}, "answers": {"urgente": false, "assunto": "agenda", "tom": 2}}
+{"id": "ex-04", "group_id": "agenda-b", "state": {"remetente": "Dra. Paula", "mensagem": "Preciso da confirmacao ainda hoje, senao a vaga vai para outra pessoa."}, "answers": {"urgente": true, "assunto": "agenda", "tom": 2}}
+{"id": "ex-05", "group_id": "pessoal-c", "state": {"remetente": "Joao", "mensagem": "e ai, bora no jogo sabado?"}, "answers": {"urgente": false, "assunto": "pessoal", "tom": 0}}
+{"id": "ex-06", "group_id": "pessoal-c", "state": {"remetente": "Joao", "mensagem": "cara me liga AGORA, e urgente"}, "answers": {"urgente": true, "assunto": "pessoal", "tom": 0}}
+{"id": "ex-07", "group_id": "cobranca-d", "state": {"remetente": "Condominio", "mensagem": "Boleto do mes disponivel no portal. Vencimento dia 10."}, "answers": {"urgente": false, "assunto": "cobranca"}}
+{"id": "ex-08", "group_id": "agenda-e", "state": {"remetente": "RH", "mensagem": "Reuniao de alinhamento na quinta, 14h, sala 2."}, "answers": {"urgente": false, "assunto": "agenda", "tom": 2}}
+{"id": "ex-09", "group_id": "pessoal-f", "state": {"remetente": "Mae", "mensagem": "Filho, liga pra mim hoje sem falta."}, "answers": {"urgente": true, "assunto": "pessoal", "tom": 0}}
+{"id": "ex-10", "group_id": "cobranca-g", "state": {"remetente": "Energia SA", "mensagem": "Conta de luz vence hoje. Evite o corte pagando ate as 17h."}, "answers": {"urgente": true, "assunto": "cobranca", "tom": 1}}
+{"id": "ex-11", "group_id": "agenda-h", "state": {"remetente": "Academia", "mensagem": "Sua aula experimental esta marcada para segunda, 7h."}, "answers": {"urgente": false, "assunto": "agenda", "tom": 1}}
+{"id": "ex-12", "group_id": "pessoal-i", "state": {"remetente": "Ana", "mensagem": "vi teu story, que lugar lindo!"}, "answers": {"urgente": false, "assunto": "pessoal", "tom": 0}}

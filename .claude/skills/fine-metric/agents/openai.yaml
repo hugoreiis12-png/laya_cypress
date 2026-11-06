@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-metric"
+  short_description: "Calibra o instrumento e mede baseline antes de congelar objet"
+  default_prompt: "Use $fine-metric para conduzir esta etapa do fine-tuning."

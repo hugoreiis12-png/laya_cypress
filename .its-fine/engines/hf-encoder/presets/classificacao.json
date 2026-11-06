@@ -1,0 +1,20 @@
+{
+  "preset": "classificacao",
+  "descricao": "Classificacao de classes fixas como caso do perfil de marcadores: uma pergunta choice (ou noul para binario) com as classes do projeto. Mesmo fluxo, mesma avaliacao e mesmo pacote. O checkpoint vem do fine-model.",
+  "recipe": {
+    "engine": "hf-encoder",
+    "profile": "escolha_por_marcador",
+    "lora": {"r": 16, "alpha": 32, "dropout": 0.05, "targets": "auto"},
+    "trainable": ["type_emb", "head", "scorer"],
+    "train": {"epochs": 3, "batch": 8, "grad_accum": 2, "lr": 0.0001, "scheduler": "cosine", "warmup_steps": 5, "seed": 42, "max_seq_length": "auto"},
+    "calibration": {"method": "temperature", "bucket": ["type", "n_options"], "min_support": 30}
+  },
+  "task_exemplo": {
+    "schema_version": 1,
+    "questions": {
+      "classe": {"type": "choice", "instructions": "Descreva aqui o que a classe representa", "criteria": {"classe_a": "descricao da classe a", "classe_b": "descricao da classe b", "classe_c": "descricao da classe c"}}
+    },
+    "decide": "classe",
+    "policy": {"high": 0.6, "low": 0.4, "middle_action": "revisar", "positive": "classe_a"}
+  }
+}

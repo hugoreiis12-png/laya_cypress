@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-config"
+  short_description: "Cria receita e plano de execução com hashes e registra autori"
+  default_prompt: "Use $fine-config para conduzir esta etapa do fine-tuning."

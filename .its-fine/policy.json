@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "allow_process": true,
+  "allow_data_to_harness": true,
+  "allow_external_generator": false,
+  "allow_data_transfer": true,
+  "allow_colab": true,
+  "allow_kaggle": false,
+  "require_isolated_executor": false,
+  "external_generator_endpoints": [],
+  "transfer_destinations": [],
+  "protected_data_paths": []
+}

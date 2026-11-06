@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-dataset"
+  short_description: "Prepara documentos ou JSONL, gera pares com evidência, separa"
+  default_prompt: "Use $fine-dataset para conduzir esta etapa do fine-tuning."

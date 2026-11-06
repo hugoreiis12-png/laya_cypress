@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laya Benchmark — Acompanhamento</title>
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--border:#2a2d3a;--text:#e0e3eb;--dim:#7a7f95;--ok:#34d399;--no:#f87171;--skip:#9ca3af;--accent:#60a5fa;--warn:#fbbf24}
+*{box-sizing:border-box}
+body{font-family:system-ui,sans-serif;margin:0;background:var(--bg);color:var(--text);font-size:14px}
+header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+header h1{font-size:16px;margin:0;font-weight:700}
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin-left:auto}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px;text-align:center}
+.stat .num{font-size:20px;font-weight:700}
+.stat .lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.stat-ok .num{color:var(--ok)} .stat-err .num{color:var(--no)} .stat-acc .num{color:var(--accent)}
+main{padding:16px 20px;max-width:1200px;margin:0 auto}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px}
+th{background:var(--card);padding:8px 10px;text-align:left;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);position:sticky;top:0}
+td{padding:6px 10px;border-top:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:#1e2230}
+.badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+.badge-ok{background:#064e3b;color:var(--ok)} .badge-err{background:#7f1d1d;color:var(--no)}
+.badge-type{background:var(--card);color:var(--accent);border:1px solid var(--accent)}
+.badge-sig-yes{background:#064e3b;color:var(--ok)} .badge-sig-no{background:#7f1d1d;color:var(--no)}
+.badge-sig-na{background:var(--card);color:var(--dim)}
+.match{color:var(--ok)} .mismatch{color:var(--no);font-weight:700}
+img.thumb{width:48px;height:48px;object-fit:cover;border-radius:4px;cursor:pointer;border:2px solid transparent}
+img.thumb:hover{border-color:var(--accent)}
+.latency{font-family:monospace;font-size:11px;color:var(--dim)}
+.latency-slow{color:var(--warn)}
+.empty{text-align:center;padding:40px;color:var(--dim)}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin:0 20px 12px}
+.progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .5s;width:0%}
+.lightbox{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:1000;align-items:center;justify-content:center;cursor:zoom-out}
+.lightbox.open{display:flex}
+.lightbox img{max-width:90%;max-height:90%;object-fit:contain;border-radius:8px}
+footer{padding:12px 20px;color:var(--dim);font-size:11px;text-align:center}
+</style></head><body>
+<header>
+<h1>Laya Benchmark</h1>
+<div class="stats">
+<div class="stat"><div class="num" id="s-total">0</div><div class="lbl">Total</div></div>
+<div class="stat"><div class="num" id="s-done">0</div><div class="lbl">Feitas</div></div>
+<div class="stat stat-ok"><div class="num" id="s-ok">0</div><div class="lbl">Acerto tipo</div></div>
+<div class="stat stat-ok"><div class="num" id="s-sig">0</div><div class="lbl">Acerto assinatura</div></div>
+<div class="stat stat-acc"><div class="num" id="s-acc">—</div><div class="lbl">Acurácia</div></div>
+<div class="stat stat-err"><div class="num" id="s-err">0</div><div class="lbl">Erros</div></div>
+<div class="stat"><div class="num" id="s-avg">—</div><div class="lbl">Lat. média</div></div>
+</div>
+</header>
+<div class="progress-bar"><div class="progress-fill" id="prog"></div></div>
+<main>
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>#</th><th>Imagem</th><th>ID</th><th>Status</th><th>Tipo (pred)</th><th>Tipo (gold)</th><th>✓</th>
+<th>Assin. (pred)</th><th>Assin. (gold)</th><th>✓</th>
+<th>CNPJ</th><th>Nota</th><th>Lat.</th><th>Erro</th>
+</tr></thead>
+<tbody id="tbody"><tr><td colspan="14" class="empty">Aguardando resultados…</td></tr></tbody>
+</table>
+</div>
+</main>
+<div class="lightbox" id="lb" onclick="this.classList.remove('open')"><img id="lb-img" src="" alt=""></div>
+<footer>Laya Benchmark — acompanhamento em tempo real</footer>
+<script>
+let all = [];
+async function poll() {
+  try {
+    const [total, results] = await Promise.all([
+      fetch('/api/total').then(r=>r.json()),
+      fetch('/api/status').then(r=>r.json())
+    ]);
+    all = results;
+    render(total);
+  } catch(e) { /* server not up yet */ }
+}
+function render(totalInfo) {
+  const total = totalInfo.total || all.length;
+  const done = all.length;
+  const ok = all.filter(r=>r.tipo_documento === r.gold_tipo && r.tipo_documento).length;
+  const sigOk = all.filter(r=>r.possui_assinatura === r.gold_assinatura && r.gold_assinatura !== null).length;
+  const err = all.filter(r=>r.error).length;
+  const acc = all.length ? Math.round(ok/all.length*100) : null;
+  const avgs = all.filter(r=>r.latency_ms>0);
+  const avg = avgs.length ? Math.round(avgs.reduce((a,b)=>a+b.latency_ms,0)/avgs.length) : null;
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-done').textContent = done;
+  document.getElementById('s-ok').textContent = ok;
+  document.getElementById('s-sig').textContent = sigOk;
+  document.getElementById('s-acc').textContent = acc!==null ? acc+'%' : '—';
+  document.getElementById('s-err').textContent = err;
+  document.getElementById('s-avg').textContent = avg!==null ? avg+'ms' : '—';
+  document.getElementById('prog').style.width = total ? Math.round(done/total*100)+'%' : '0%';
+  const tbody = document.getElementById('tbody');
+  if(!all.length){ tbody.innerHTML='<tr><td colspan="14" class="empty">Aguardando resultados…</td></tr>'; return; }
+  tbody.innerHTML = all.map((r,i)=>{
+    const typeMatch = r.tipo_documento === r.gold_tipo && r.tipo_documento;
+    const sigMatch = r.possui_assinatura === r.gold_assinatura && r.gold_assinatura !== null;
+    const latCls = r.latency_ms > 5000 ? 'latency latency-slow' : 'latency';
+    const imgSrc = r.image ? '/images/' + r.image.split('/').pop() : '';
+    return '<tr>'
+      + '<td>'+(i+1)+'</td>'
+      + '<td><img class="thumb" src="'+imgSrc+'" alt="" onclick="openLb(\''+imgSrc+'\')" onerror="this.style.display=\'none\'"></td>'
+      + '<td style="font-family:monospace;font-size:11px">'+r.id.slice(0,8)+'</td>'
+      + '<td><span class="badge '+(r.status===200?'badge-ok':'badge-err')+'">'+r.status+'</span></td>'
+      + '<td><span class="badge badge-type">'+(r.tipo_documento||'—')+'</span></td>'
+      + '<td>'+(r.gold_tipo||'—')+'</td>'
+      + '<td class="'+(typeMatch?'match':'mismatch')+'">'+(typeMatch?'✓':'✗')+'</td>'
+      + '<td><span class="badge '+(r.possui_assinatura===true?'badge-sig-yes':r.possui_assinatura===false?'badge-sig-no':'badge-sig-na')+'">'+(r.possui_assinatura===true?'sim':r.possui_assinatura===false?'não':'?')+'</span></td>'
+      + '<td>'+(r.gold_assinatura===true?'sim':r.gold_assinatura===false?'não':'—')+'</td>'
+      + '<td class="'+(sigMatch?'match':'mismatch')+'">'+(sigMatch?'✓':'✗')+'</td>'
+      + '<td style="font-family:monospace;font-size:11px">'+(r.cnpj||'—')+'</td>'
+      + '<td style="font-family:monospace;font-size:11px">'+(r.numero||'—')+'</td>'
+      + '<td class="'+latCls+'">'+(r.latency_ms?r.latency_ms+'ms':'—')+'</td>'
+      + '<td style="font-size:10px;color:var(--no);max-width:150px;overflow:hidden;text-overflow:ellipsis">'+(r.error||'')+'</td>'
+      + '</tr>';
+  }).join('');
+}
+function openLb(src){
+  if(!src) return;
+  document.getElementById('lb-img').src = src;
+  document.getElementById('lb').classList.add('open');
+}
+setInterval(poll, 2000);
+poll();
+</script></body></html>

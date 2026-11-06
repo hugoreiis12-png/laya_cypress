@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-help"
+  short_description: "Responde dúvidas sobre ITS-FINE e fine-tuning e informa estad"
+  default_prompt: "Use $fine-help para esclarecer minha dúvida e indicar estado e próximos passos."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-evaluate"
+  short_description: "Compara base e candidato sob protocolo congelado e distingue "
+  default_prompt: "Use $fine-evaluate para conduzir esta etapa do fine-tuning."

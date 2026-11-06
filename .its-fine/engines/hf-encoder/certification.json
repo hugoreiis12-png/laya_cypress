@@ -1,0 +1,185 @@
+{
+  "schema_version": 2,
+  "engine": "hf-encoder",
+  "checkpoints": [
+    {
+      "id": "convaiinnovations/laya-multilingual",
+      "revision": "b4a904d1a2a54c822b829e24291d4b8f280fe43e",
+      "layout": "decisao",
+      "cabecas_novas": false,
+      "download": {
+        "conferido_contra_hub": true,
+        "modo": "download",
+        "files": {
+          "encoder/config.json": "83f6916d13ef0f556ac461f28308dc2bffa7ebeadee8ec9e2db5812020ea5bb4",
+          "model.safetensors": "9d628fd971b700382ac6f65920a86f149777b2e748e0c955fb3b19695aa8f204",
+          "rl_agent_config.json": "25061739243b617ad88d1219ba6f8a9c86c5881ca28df024fa2d9b3b2fcc30c6",
+          "tokenizer/tokenizer.json": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f",
+          "tokenizer/tokenizer_config.json": "424b69444bf7b5809dc2cd2e36d0bd71b8055124dd24274d6db3c655d38205e7"
+        }
+      },
+      "paridade": {
+        "ok": true,
+        "casos": 6,
+        "tokens_iguais": true,
+        "marcadores_iguais": true,
+        "delta_logits_max": 0.0,
+        "respostas_iguais": true,
+        "diferencas": [],
+        "estados": 6,
+        "perguntas": 5
+      },
+      "referencia": {
+        "repositorio": "https://github.com/NandhaKishorM/laya",
+        "commit": "1e28ac20c0896b1c37a744cd11f740eb98f8b178",
+        "versao": "0.3.11",
+        "licenca": "Apache-2.0",
+        "arquivos": [
+          "laya/common.py",
+          "laya/agent.py"
+        ]
+      },
+      "sondagem": {
+        "pico_alocado_gb": 2.07,
+        "pico_reservado_gb": 2.13,
+        "total_gb": 8.59,
+        "coube": true,
+        "nota": "reservado acima do total significa fallback para memoria do sistema: roda, mas lento; reduza batch",
+        "passos": 4,
+        "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+        "segundos_por_passo": 0.4
+      },
+      "treino": {
+        "passos": 8,
+        "loss_treino": 0.4979,
+        "estados": 7,
+        "sequencias": 20,
+        "parametros": {
+          "type_emb": 2304,
+          "head": 14175744,
+          "scorer": 592897,
+          "act_head": 0
+        },
+        "treinaveis": 16460545,
+        "act_head_congelada": true
+      },
+      "retomada": {
+        "ok": true,
+        "diferenca_maxima": 0.0,
+        "passos": 8
+      },
+      "avaliacao": {
+        "blocos": [
+          "original_sem_calibracao",
+          "baseline_frequencia",
+          "baseline_calibrado",
+          "candidato"
+        ],
+        "limites_ok": true,
+        "latencia_ms_p50_gpu_ou_cpu": 225.1
+      },
+      "exportacao": {
+        "package_id": "5540bd9fa1daf242c684ddc74ad788de0f1f5b3e61e4fc4fd464c5c321b00e59",
+        "arquivos": 8,
+        "predict_ok": true,
+        "sem_laya": true
+      },
+      "servidor": {
+        "decisoes_iguais": true,
+        "latencia_ms_p50_cpu": 210.5
+      },
+      "fluxo_ok": true,
+      "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+      "data": "2026-09-24",
+      "dependencias": {
+        "torch": "2.8.0+cu129",
+        "transformers": "5.17.0",
+        "peft": "0.21.0",
+        "safetensors": "0.8.0",
+        "numpy": "2.5.3",
+        "python": "3.12.0"
+      }
+    },
+    {
+      "id": "neuralmind/bert-base-portuguese-cased",
+      "revision": "94d69c95f98f7d5b2a8700c420230ae10def0baa",
+      "layout": "encoder",
+      "cabecas_novas": true,
+      "download": {
+        "conferido_contra_hub": true,
+        "modo": "download",
+        "files": {
+          "added_tokens.json": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "config.json": "5d8e34a2272a548e9c346133253ac20453b0d1ad8d3190d6ba89252c7c544357",
+          "pytorch_model.bin": "cb1693767adef60abf23d9fde3996f0c1e6310afad103a2db94ad44854568955",
+          "special_tokens_map.json": "303df45a03609e4ead04bc3dc1536d0ab19b5358db685b6f3da123d05ec200e3",
+          "tokenizer_config.json": "5abeb5276424d64097abc25b16c149da7c0fdf0594253c34fd899321db4913ea",
+          "vocab.txt": "69c28584c67a0e5018f85ca734aa272cc38e26b5dd0d33fffa28059299f21707"
+        }
+      },
+      "paridade": null,
+      "referencia": null,
+      "sondagem": {
+        "pico_alocado_gb": 1.18,
+        "pico_reservado_gb": 1.24,
+        "total_gb": 8.59,
+        "coube": true,
+        "nota": "reservado acima do total significa fallback para memoria do sistema: roda, mas lento; reduza batch",
+        "passos": 4,
+        "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+        "segundos_por_passo": 0.2
+      },
+      "treino": {
+        "passos": 8,
+        "loss_treino": 0.9558,
+        "estados": 7,
+        "sequencias": 20,
+        "parametros": {
+          "type_emb": 2304,
+          "head": 14175744,
+          "scorer": 592897,
+          "act_head": 0
+        },
+        "treinaveis": 16110337,
+        "act_head_congelada": true
+      },
+      "retomada": {
+        "ok": true,
+        "diferenca_maxima": 0.0,
+        "passos": 8
+      },
+      "avaliacao": {
+        "blocos": [
+          "original_sem_calibracao",
+          "baseline_frequencia",
+          "baseline_calibrado",
+          "candidato"
+        ],
+        "limites_ok": true,
+        "latencia_ms_p50_gpu_ou_cpu": 161.1
+      },
+      "exportacao": {
+        "package_id": "d09261449da03ce1131c78630248fccf3460e4cf667caf82a512cb5b4bd2ce31",
+        "arquivos": 10,
+        "predict_ok": true,
+        "sem_laya": true
+      },
+      "servidor": {
+        "decisoes_iguais": true,
+        "latencia_ms_p50_cpu": 297.0
+      },
+      "fluxo_ok": true,
+      "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+      "data": "2026-09-24",
+      "dependencias": {
+        "torch": "2.8.0+cu129",
+        "transformers": "5.17.0",
+        "peft": "0.21.0",
+        "safetensors": "0.8.0",
+        "numpy": "2.5.3",
+        "python": "3.12.0"
+      }
+    }
+  ],
+  "engine_version": "0.0.8"
+}

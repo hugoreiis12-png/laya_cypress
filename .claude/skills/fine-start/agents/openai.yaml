@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-start"
+  short_description: "Conduz fine-tuning a partir da intenção; use para iniciar ou "
+  default_prompt: "Use $fine-start para conduzir esta etapa do fine-tuning."

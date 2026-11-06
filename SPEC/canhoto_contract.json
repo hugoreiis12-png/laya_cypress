@@ -1,0 +1,17 @@
+{
+  "tipo_documento": "canhoto",
+  "assinatura": {
+    "possui_assinatura": true,
+    "confianca": 98,
+    "descricao": "Assinatura manuscrita"
+  },
+  "emitente": {
+    "cnpj": "22.089.653/0003-93"
+  },
+  "nota_fiscal": {
+    "numero": "123456"
+  },
+  "qrcode": {
+    "chave": null
+  }
+}

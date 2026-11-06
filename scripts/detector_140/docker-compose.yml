@@ -1,0 +1,26 @@
+services:
+  laya-detector:
+    image: laya-detector:local
+    container_name: laya-detector
+    restart: unless-stopped
+    ports:
+      - "8030:8030"
+    environment:
+      DETECTOR_API_KEY: ${DETECTOR_API_KEY}
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+    cpuset: "28-31"
+    cpus: 4
+    mem_limit: 3g
+    mem_reservation: 1g
+    networks: [laya]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8030/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  laya:
+    external: true
+    name: laya_default

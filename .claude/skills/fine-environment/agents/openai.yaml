@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-environment"
+  short_description: "Diagnostica hardware e prepara ambiente local, Colab ou Kaggl"
+  default_prompt: "Use $fine-environment para conduzir esta etapa do fine-tuning."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-colab"
+  short_description: "Conduz execução supervisionada no Google Colab, com envio aut"
+  default_prompt: "Use $fine-colab para conduzir esta etapa do fine-tuning."

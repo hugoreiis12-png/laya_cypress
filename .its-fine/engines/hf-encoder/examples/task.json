@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "questions": {
+    "urgente": {"type": "noul", "instructions": "The message asks for something that must be done today"},
+    "assunto": {"type": "choice", "instructions": "What is the message about", "criteria": {"cobranca": "A bill or payment request", "agenda": "Scheduling a meeting or appointment", "pessoal": "Personal conversation between people who know each other"}},
+    "tom": {"type": "score", "instructions": "How formal the message is", "criteria": ["Informal", "Neutral", "Formal"]}
+  },
+  "decide": "urgente",
+  "policy": {"high": 0.6, "low": 0.4, "middle_action": "revisar", "positive": "true"}
+}

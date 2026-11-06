@@ -1,0 +1,33 @@
+{
+  "modo": "venv",
+  "venv": "C:\\Users\\JFC\\Desktop\\LAYA_CYPRESS\\.its-fine\\venv",
+  "herda_torch_do_sistema": false,
+  "schema_version": 1,
+  "python": "C:\\Users\\JFC\\Desktop\\LAYA_CYPRESS\\.its-fine\\venv\\Scripts\\python.exe",
+  "engines_prontos": [],
+  "hf-encoder": {
+    "schema_version": 1,
+    "engine": "hf-encoder",
+    "raiz": "C:\\Users\\JFC\\Desktop\\LAYA_CYPRESS",
+    "python_sistema": "C:\\Users\\JFC\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "instalacao_ok": true,
+    "pacotes": [
+      "transformers>=5.16,<6",
+      "peft>=0.18,<1",
+      "safetensors>=0.4",
+      "numpy>=1.24,<3"
+    ],
+    "versoes": {
+      "torch": "2.11.0+cu128",
+      "cuda": false,
+      "mps": false,
+      "transformers": "5.22.1",
+      "peft": "0.21.2",
+      "safetensors": "0.8.0",
+      "numpy": "2.5.4"
+    },
+    "pronto": false,
+    "acao_do_usuario": "torch sem CUDA (ou Metal no Mac) na venv: rode setup.py --install-torch apos aprovar o download."
+  },
+  "engine": "hf-peft"
+}

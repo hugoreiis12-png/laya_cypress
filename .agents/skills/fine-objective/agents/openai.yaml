@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-objective"
+  short_description: "Congela objetivo e protocolo depois de preparar dados, modelo"
+  default_prompt: "Use $fine-objective para conduzir esta etapa do fine-tuning."

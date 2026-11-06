@@ -1,0 +1,40 @@
+{
+  "schema_version": 2,
+  "nota": "Sugestoes, nao lista fechada. Qualquer encoder do Hugging Face com token de mascara serve de base. O download.py fixa a revisao num commit e confere cada arquivo contra o Hub; os hashes ficam no itsfine-download.json da pasta, nunca neste arquivo. Numeros de params, camadas e contexto servem so para a estimativa de VRAM.",
+  "sugestoes": [
+    {
+      "id": "convaiinnovations/laya-multilingual",
+      "layout": "decisao",
+      "cabecas": "treinadas para decisoes tipadas",
+      "encoder": "jhu-clsp/mmBERT-base",
+      "params": 322000000, "hidden": 768, "camadas": 22, "camadas_cabeca": 2, "max_len": 1024,
+      "idiomas": "multilingue (cobre portugues)", "licenca": "apache-2.0",
+      "quando": "perguntas tipadas em portugues; ja sabe escolher entre opcoes antes do treino"
+    },
+    {
+      "id": "convaiinnovations/laya-typed-decisions",
+      "layout": "decisao",
+      "cabecas": "treinadas para decisoes tipadas",
+      "encoder": "answerdotai/ModernBERT-large",
+      "params": 421000000, "hidden": 1024, "camadas": 28, "camadas_cabeca": 2, "max_len": 1024,
+      "idiomas": "ingles", "licenca": "apache-2.0",
+      "quando": "perguntas tipadas sobre textos em ingles"
+    },
+    {
+      "id": "jhu-clsp/mmBERT-base",
+      "layout": "encoder",
+      "cabecas": "novas",
+      "params": 307000000, "hidden": 768, "camadas": 22, "camadas_cabeca": 2, "max_len": 1024,
+      "idiomas": "multilingue (cobre portugues)", "licenca": "mit",
+      "quando": "encoder multilingue sem cabecas de decisao; precisa de mais exemplos rotulados que um checkpoint de decisao"
+    },
+    {
+      "id": "neuralmind/bert-base-portuguese-cased",
+      "layout": "encoder",
+      "cabecas": "novas",
+      "params": 110000000, "hidden": 768, "camadas": 12, "camadas_cabeca": 2, "max_len": 512,
+      "idiomas": "portugues", "licenca": "mit",
+      "quando": "textos curtos em portugues, GPU pequena"
+    }
+  ]
+}

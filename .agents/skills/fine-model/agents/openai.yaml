@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-model"
+  short_description: "Escolhe modelo base e fixa revisões; separa estimativa de via"
+  default_prompt: "Use $fine-model para conduzir esta etapa do fine-tuning."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-train"
+  short_description: "Executa sondagem e treino exclusivamente pelo supervisor, com"
+  default_prompt: "Use $fine-train para conduzir esta etapa do fine-tuning."

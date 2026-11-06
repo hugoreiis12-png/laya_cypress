@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-export"
+  short_description: "Exporta adapter e reavalia no consumidor e quantização que se"
+  default_prompt: "Use $fine-export para conduzir esta etapa do fine-tuning."

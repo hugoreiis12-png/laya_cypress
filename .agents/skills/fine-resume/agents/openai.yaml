@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-resume"
+  short_description: "Reconcilia job interrompido e retoma somente checkpoint ínteg"
+  default_prompt: "Use $fine-resume para conduzir esta etapa do fine-tuning."

@@ -1,0 +1,15 @@
+{
+  "tipo_documento": "pedido",
+  "itens": [
+    {
+      "codigo": null,
+      "produto": "ALFACE",
+      "qnt": 10
+    },
+    {
+      "codigo": null,
+      "produto": "RUCULA",
+      "qnt": 5
+    }
+  ]
+}

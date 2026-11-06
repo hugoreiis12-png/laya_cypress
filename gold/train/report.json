@@ -1,0 +1,17 @@
+
+{
+  "labels": {
+    "dev": {},
+    "test": {}
+  },
+  "skipped": {
+    "sem_rotulo": 299
+  },
+  "abaixo_do_minimo": {
+    "canhoto": 0,
+    "comprovante": 0,
+    "pedido": 0,
+    "imagem_invalida": 0
+  },
+  "minimo_por_classe": 30
+}

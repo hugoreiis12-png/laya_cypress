@@ -1,0 +1,35 @@
+# Dados de clientes (LGPD) — nunca versionar mídias ou cumulativos internos
+gold/images/
+gold/inbox/
+gold/predictions/
+gold/raw/
+# relatórios com saída de avaliação podem conter amostra de dados
+reports/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+gold/triagem/
+gold/backups/
+
+# Derivados com dados de clientes
+gold/ocr/
+gold/origem/
+gold/hints.jsonl
+gold/inbox_*/
+
+# Framework de fine-tuning, quarentena e ambiente
+.its-fine/venv/
+.its-fine/venvs/
+.its-fine/models/
+.its-fine/private-logs/
+.its-fine/colab/
+_itsfine_runs/
+_lixeira/
+.env
+.pytest_cache/
+
+# Credenciais do fluxo e origem dos dados de clientes
+n8n/
+assets/

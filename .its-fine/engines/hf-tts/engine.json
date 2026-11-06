@@ -1,0 +1,74 @@
+{
+  "engine": "hf-tts",
+  "version": "0.0.16",
+  "descricao": "Motor de voz do ITS-FINE: fine-tuning LoRA de modelos de fala que geram tokens de codec de audio (texto para voz, com a voz do usuario). O nucleo e generico; cada familia de arquitetura entra por um adaptador em familias/.",
+  "ambiente": "proprio",
+  "requisitos": {
+    "python": ">=3.10",
+    "pacotes": [
+      "transformers==4.57.3",
+      "accelerate==1.12.0",
+      "peft>=0.17,<1",
+      "safetensors>=0.4",
+      "librosa>=0.10",
+      "soundfile>=0.12",
+      "einops>=0.8",
+      "sox>=1.5",
+      "onnxruntime>=1.18",
+      "jiwer>=3,<5",
+      "faster-whisper>=1.1,<2",
+      "av>=11",
+      "jsonschema>=4,<5",
+      "torchaudio"
+    ],
+    "sem_dependencias": ["qwen-tts==0.1.1"],
+    "nota": "venv propria em .its-fine/venvs/hf-tts: a familia qwen3-tts fixa transformers 4.57.3, que conflita com o hf-peft. qwen-tts entra sem dependencias para nao trazer o gradio. torchaudio e fixado na versao do torch da venv pelo setup.",
+    "torch": "herdado do Python do sistema quando ele ja enxerga a GPU (CUDA ou Metal); senao setup.py --install-torch"
+  },
+  "defaults": {
+    "method": "lora",
+    "lora": {"r": 16, "alpha": 32, "dropout": 0.0},
+    "train": {
+      "epochs": 6, "batch": 1, "grad_accum": 4, "lr": 0.0001, "scheduler": "cosine", "warmup_steps": 10,
+      "seed": 42, "max_audio_seconds": 20, "save_total_limit": 2
+    },
+    "sanidade": {"fracao_do_acaso": 0.8},
+    "avaliacao": {
+      "asr": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
+      "verificador": "microsoft/wavlm-base-plus-sv",
+      "wer_maximo_por_frase": 0.3
+    },
+    "justificativa": "LoRA r=16 nas projecoes de atencao e MLP do modelo de fala, lr 1e-4: medido no Qwen3-TTS 0.6B com 7 min de voz, a perda em dados separados melhora ja na primeira epoca e piora a partir da terceira; por isso cada epoca e avaliada na validacao e o melhor checkpoint e o que vira adapter, nao o ultimo. Lote 1 com acumulacao 4 cabe em 8 GB. A porta de sanidade recusa treinar quando a perda do modelo base nos dados separados nao fica abaixo de 80% do acaso (ln do vocabulario): e o sintoma de layout de sequencia errado."
+  },
+  "encaixe": {
+    "bytes_por_parametro": {"lora": 2.0},
+    "overhead_gb": 1.2,
+    "limites": {"folga": 0.6, "cabe": 0.75, "aperta": 0.9},
+    "nota": "Estimativa: pesos bf16 + overhead + gb_por_segundo da familia vezes a duracao maxima do clipe (lote 1). Medido nesta engine em GPU de 8 GB, clipes ate 10 s: Qwen3-TTS 0.6B 3,3 a 4,1 GB; CSM 1B 6,3 GB. A sondagem e que decide."
+  },
+  "familias": {
+    "qwen3-tts": {
+      "adaptador": "familias/qwen3_tts.py",
+      "taxa_amostragem": 24000,
+      "gb_por_segundo": 0.06,
+      "idiomas": ["pt", "en", "es", "fr", "de", "it", "ja", "ko", "zh", "ru"],
+      "nota": "LM sobre codec de 16 camadas (12,5 quadros/s) + sub-preditor das camadas finas. O modelo ajustado vira voz propria (custom voice) e nao precisa de audio de referencia."
+    },
+    "csm": {
+      "adaptador": "familias/csm.py",
+      "taxa_amostragem": 24000,
+      "gb_por_segundo": 0.15,
+      "idiomas": ["en"],
+      "nota": "Backbone Llama sobre codec Mimi de 32 camadas + decodificador de profundidade, nativo do transformers. So ingles."
+    }
+  },
+  "modelos": [
+    {"id": "Qwen/Qwen3-TTS-12Hz-0.6B-Base", "familia": "qwen3-tts", "params": 914700000, "revision": "5d83992436", "licenca": "apache-2.0", "gated": false,
+     "nota": "Medido nesta engine em GPU de 8 GB: LoRA, lote 1, clipes ate 10 s, pico 3,3 GB. Fala portugues."},
+    {"id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base", "familia": "qwen3-tts", "params": 1928677440, "revision": "fd4b254389", "licenca": "apache-2.0", "gated": false,
+     "nota": "Mais natural que o 0.6B; LoRA estimado perto de 6 GB, a sondagem decide em placa de 8 GB."},
+    {"id": "unsloth/csm-1b", "familia": "csm", "params": 1648942945, "revision": "39e8c756be", "licenca": "apache-2.0", "gated": false,
+     "nota": "Copia aberta do Sesame CSM 1B no formato do transformers. So ingles."}
+  ],
+  "catalogo_nota": "Ids, licenca, gating e commit main conferidos na API do Hugging Face em 2026-10-02; revision guarda os 10 primeiros caracteres. O fine-model fixa o commit completo."
+}

@@ -1,0 +1,62 @@
+{
+  "engine": "hf-peft",
+  "version": "0.0.16",
+  "descricao": "Motor de referencia do ITS-FINE: transformers + peft, LoRA em bf16 ou QLoRA em 4 bits, com ingestao, checagem, treino, avaliacao e exportacao prontos.",
+  "requisitos": {
+    "python": ">=3.10",
+    "pacotes": [
+      "transformers>=5.16,<6",
+      "peft>=0.18,<1",
+      "datasets>=4.3,<6",
+      "accelerate>=1.12,<2",
+      "safetensors>=0.4",
+      "pymupdf>=1.24"
+    ],
+    "opcionais": {
+      "qlora": ["bitsandbytes>=0.50"],
+      "gguf": ["gguf (via llama.cpp)"]
+    },
+    "torch": "instalado a parte, do indice CUDA correspondente ao driver; o setup reaproveita o torch do sistema quando ele ja enxerga a GPU"
+  },
+  "defaults": {
+    "method": "lora",
+    "precision": "bf16",
+    "lora": {"r": 16, "alpha": 32, "dropout": 0.05, "targets": "auto"},
+    "train": {
+      "epochs": 3, "batch": 4, "grad_accum": 4, "lr": 0.0002, "scheduler": "cosine",
+      "warmup_steps": 5, "seed": 42, "max_seq_length": "auto", "gradient_checkpointing": true,
+      "eval_strategy": "epoch", "save_strategy": "epoch", "save_total_limit": 2
+    },
+    "generation": {"do_sample": false, "max_new_tokens": 256},
+    "justificativa": "r=16 com alpha=2r e dropout 0.05 e o default mais comum em LoRA de instrucao e cobre estilo e formato; para fato, suba r para 64 e as epocas para 8. lr 2e-4 e o padrao de LoRA em toda a faixa de 1B a 9B. Batch efetivo 16 mantem o passo estavel em dataset pequeno. 3 epocas e o ponto em que poucas centenas de exemplos fixam vocabulario sem decorar."
+  },
+  "encaixe": {
+    "bytes_por_parametro": {"lora": 2.0, "qlora": 0.9, "full": 16.0},
+    "overhead_gb": 1.4,
+    "fator_ativacao_checkpointing": 4,
+    "limites": {"folga": 0.6, "cabe": 0.75, "aperta": 0.9},
+    "nota": "Formula publica de estimativa de VRAM (bf16 2 bytes/param, bnb 4-bit 0.9 byte/param, overhead medido 1.34 a 1.46 GB). Ativacao = batch x seq x hidden x camadas x 2 bytes x fator. Estimativa, nao medicao: a sondagem de treino e que decide."
+  },
+  "anonimizacao": {
+    "regras": "br-v1",
+    "formatos": ["cpf", "cnpj", "email", "telefone", "cep"],
+    "modelo_nomes": {"id": "Davlan/bert-base-multilingual-cased-ner-hrl", "revision": "e756de7f7b8f64fea0c3d7c3872f1322fab747b1",
+                     "licenca": "afl-3.0", "bytes": 710103627, "saida": ".its-fine/models/nomes",
+                     "nota": "Reconhece pessoa, organizacao e lugar em 10 idiomas, portugues entre eles; so pessoa vira [PESSOA]. Tem tokenizer WordPiece (vocab.txt), sem dependencia extra. Roda em CPU. Testado nesta engine com transformers 5.20: nomes compostos trocados, cidade e empresa preservadas, texto acima de 512 tokens coberto por janela."}
+  },
+  "modelos": [
+    {"id": "Qwen/Qwen3.5-0.8B", "params": 873438784, "revision": "2fc0636471", "licenca": "apache-2.0", "gated": false, "familia": "Qwen3.5", "instruido": true,
+     "qlora": "desaconselhado", "nota": "Ha recomendacao publica contra QLoRA 4-bit em toda a familia Qwen3.5, por diferenca de quantizacao acima do normal. bf16 LoRA publicado: 3 GB. Hibrido com atencao linear; alvos LoRA por deteccao automatica."},
+    {"id": "Qwen/Qwen3.5-2B", "params": 2274069824, "revision": "15852e8c16", "licenca": "apache-2.0", "gated": false, "familia": "Qwen3.5", "instruido": true,
+     "qlora": "desaconselhado", "nota": "bf16 LoRA publicado: 5 GB. Medido nesta engine em GPU de 8 GB, batch 4 seq 512: pico alocado 5.7 GB, reservado acima da placa; use batch 2 em 8 GB. Config declara EOS endoftext mas o turno fecha com im_end; a engine trata."},
+    {"id": "Qwen/Qwen3.5-4B", "params": 4659865088, "revision": "851bf6e806", "licenca": "apache-2.0", "gated": false, "familia": "Qwen3.5", "instruido": true,
+     "qlora": "desaconselhado", "nota": "bf16 LoRA publicado: 10 GB. Nao cabe em placa de 8 GB pelo caminho recomendado."},
+    {"id": "Qwen/Qwen3.5-9B", "params": 9653104368, "revision": "c202236235", "licenca": "apache-2.0", "gated": false, "familia": "Qwen3.5", "instruido": true,
+     "qlora": "desaconselhado", "nota": "bf16 LoRA publicado: 22 GB. Exige placa de 24 GB."},
+    {"id": "microsoft/Phi-4-mini-instruct", "params": 3836021760, "revision": "cfbefacb99", "licenca": "mit", "gated": false, "familia": "Phi-4", "instruido": true,
+     "qlora": "ok", "nota": "Licenca MIT. Em 8 GB, use QLoRA."},
+    {"id": "HuggingFaceTB/SmolLM3-3B", "params": 3075098624, "revision": "a07cc9a04f", "licenca": "apache-2.0", "gated": false, "familia": "SmolLM3", "instruido": true,
+     "qlora": "ok", "nota": "Apache 2.0, multilingue. Em 8 GB, use QLoRA."}
+  ],
+  "catalogo_nota": "Ids, contagem de parametros, gating e licenca conferidos na API do Hugging Face em 2026-09-07. O campo revision guarda os 10 primeiros caracteres do commit main naquela data; o fine-model fixa o commit completo no artefato."
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-kaggle"
+  short_description: "Conduz execução supervisionada no Kaggle pela API oficial, se"
+  default_prompt: "Use $fine-kaggle para conduzir esta etapa do fine-tuning."

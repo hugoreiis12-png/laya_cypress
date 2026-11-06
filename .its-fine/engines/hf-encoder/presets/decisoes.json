@@ -1,0 +1,23 @@
+{
+  "preset": "decisoes",
+  "descricao": "Varias perguntas tipadas sobre cada estado. O checkpoint (id, commit do lock e path local) vem do fine-model; complete task.json com as perguntas do projeto.",
+  "recipe": {
+    "engine": "hf-encoder",
+    "profile": "escolha_por_marcador",
+    "lora": {"r": 16, "alpha": 32, "dropout": 0.05, "targets": "auto"},
+    "trainable": ["type_emb", "head", "scorer"],
+    "loss_weights": {},
+    "train": {"epochs": 3, "batch": 4, "grad_accum": 4, "lr": 0.0001, "scheduler": "cosine", "warmup_steps": 5, "seed": 42, "max_seq_length": "auto"},
+    "calibration": {"method": "temperature", "bucket": ["type", "n_options"], "min_support": 30}
+  },
+  "task_exemplo": {
+    "schema_version": 1,
+    "questions": {
+      "decisao": {"type": "noul", "instructions": "Descreva aqui a afirmacao que o modelo deve julgar verdadeira ou falsa"},
+      "categoria": {"type": "choice", "instructions": "Descreva aqui a pergunta de categoria", "criteria": {"opcao_a": "descricao da opcao a", "opcao_b": "descricao da opcao b"}},
+      "nivel": {"type": "score", "instructions": "Descreva aqui a escala", "criteria": ["nivel 0", "nivel 1", "nivel 2"]}
+    },
+    "decide": "decisao",
+    "policy": {"high": 0.6, "low": 0.4, "middle_action": "revisar", "positive": "true"}
+  }
+}

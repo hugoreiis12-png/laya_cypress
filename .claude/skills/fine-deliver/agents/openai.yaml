@@ -1,0 +1,4 @@
+interface:
+  display_name: "fine-deliver"
+  short_description: "Entrega modelo verificado com recibo; publicação externa prec"
+  default_prompt: "Use $fine-deliver para conduzir esta etapa do fine-tuning."
