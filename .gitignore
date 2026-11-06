@@ -33,3 +33,11 @@ _lixeira/
 # Credenciais do fluxo e origem dos dados de clientes
 n8n/
 assets/
+
+# Dados de treinamento do modelo
+gold/train/
+gold/manifest.jsonl
+.its-fine/runtime-env/
+.its-fine/history/
+.its-fine/policy.json
+

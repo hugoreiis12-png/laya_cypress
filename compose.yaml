@@ -1,0 +1,42 @@
+services:
+  laya-cypress:
+    build: .
+    image: laya-cypress:local
+    container_name: laya-cypress
+    restart: unless-stopped
+    environment:
+      API_KEY: ${API_KEY:?defina API_KEY no stack}
+      WHITELIST_CNPJ: ${WHITELIST_CNPJ:?defina WHITELIST_CNPJ no stack}
+      LAYA_URL: ${LAYA_URL:-}
+      LAYA_API_KEY: ${LAYA_API_KEY:-}
+      LAYA_CONFIDENCE_FIELD: ${LAYA_CONFIDENCE_FIELD:-answer_confidence}
+      LAYA_TIMEOUT: ${LAYA_TIMEOUT:-10}
+      QUEUE_TIMEOUT: ${QUEUE_TIMEOUT:-25}
+      MAX_CONCURRENCY: ${MAX_CONCURRENCY:-2}
+      TYPE_ENGINE: ${TYPE_ENGINE:-laya}
+      SIGNATURE_ENGINE: ${SIGNATURE_ENGINE:-atual}
+      SIGNATURE_SHADOW_URL: ${SIGNATURE_SHADOW_URL:-}
+      SIGNATURE_SHADOW_API_KEY: ${SIGNATURE_SHADOW_API_KEY:-}
+      SIGNATURE_SHADOW_TIMEOUT: ${SIGNATURE_SHADOW_TIMEOUT:-4}
+      SIGNATURE_SHADOW_THRESHOLD: ${SIGNATURE_SHADOW_THRESHOLD:-0.31}
+      HERMES_URL: ${HERMES_URL:-}
+      HERMES_TIMEOUT: ${HERMES_TIMEOUT:-8}
+      HERMES_AUDIT: ${HERMES_AUDIT:-}
+      JUDGE_URL: ${JUDGE_URL:-}
+      JUDGE_MODEL: ${JUDGE_MODEL:-}
+      JUDGE_TIMEOUT: ${JUDGE_TIMEOUT:-20}
+      JUDGE_TRANSCRIBE: ${JUDGE_TRANSCRIBE:-1}
+      DECISION_LOG_PATH: ${DECISION_LOG_PATH:-}
+      DECISION_DIGEST_KEY: ${DECISION_DIGEST_KEY:-}
+    ports:
+      - "192.168.0.160:8020:8020"
+      - "100.66.232.113:8020:8020"
+    volumes:
+      - /opt/laya-cypress/dados:/srv/dados
+    mem_limit: 2g
+    cpus: "2.0"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
