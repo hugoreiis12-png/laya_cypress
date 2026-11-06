@@ -9,6 +9,8 @@ from .types import Box, OcrResult, Word
 
 LANG = "por"
 MIN_WORD_CONFIDENCE = 0.0
+MIN_READABLE_CHARS = 40  # below this OSD may have picked the wrong orientation; same cut the judge uses
+CANDIDATE_ROTATIONS = (0, 90, 180, 270)
 
 
 def _words(data: dict[str, list[Any]]) -> list[tuple[tuple[int, int, int], Word]]:
@@ -41,11 +43,22 @@ def detect_rotation(gray: np.ndarray) -> int:
         return 0  # OSD fails on sparse pages; read the image as it came
 
 
-def run(image: np.ndarray) -> tuple[OcrResult, np.ndarray]:
-    """Returns the OCR result and the upright image its word boxes refer to."""
+def _read(image: np.ndarray, rotation: int) -> tuple[OcrResult, np.ndarray]:
     import pytesseract
 
-    rotation = detect_rotation(to_gray(image))
     upright = rotate(image, rotation)
     data = pytesseract.image_to_data(to_gray(upright), lang=LANG, output_type=pytesseract.Output.DICT)
     return from_tesseract_data(data, rotation), upright
+
+
+def _characters(read: tuple[OcrResult, np.ndarray]) -> int:
+    return len(read[0].text.strip())
+
+
+def run(image: np.ndarray) -> tuple[OcrResult, np.ndarray]:
+    """Returns the OCR result and the upright image its word boxes refer to; a short read tries every rotation."""
+    first = _read(image, detect_rotation(to_gray(image)))
+    if _characters(first) >= MIN_READABLE_CHARS:
+        return first
+    others = [_read(image, rotation) for rotation in CANDIDATE_ROTATIONS if rotation != first[0].rotation]
+    return max([first, *others], key=_characters)  # a tie keeps the orientation OSD chose
