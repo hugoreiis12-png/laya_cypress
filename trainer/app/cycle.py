@@ -15,12 +15,12 @@ from .mailing import MailError
 from .metrics import Metrics, MetricsError, from_kernel
 from .registry import Registry, RegistryError
 from .report import build_report
-from .state import KIND_VISION, TrainerState, load_state, save_state
+from .state import KIND_LAYA, KIND_VISION, TrainerState, load_state, save_state
 
 log = logging.getLogger(__name__)
 KERNEL_TIMEOUT_SECONDS = 10 * 3600  # Kaggle stops a run at about 9 hours
 KERNELS_DIR = Path(__file__).resolve().parent.parent / "kernels"
-KERNEL_SCRIPTS = {KIND_VISION: KERNELS_DIR / "train_vision.py"}
+KERNEL_SCRIPTS = {KIND_VISION: KERNELS_DIR / "train_vision.py", KIND_LAYA: KERNELS_DIR / "train_laya.py"}
 METRICS_FILE, WEIGHTS_FILE = "metricas.json", "pesos.bin"
 
 
