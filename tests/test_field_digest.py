@@ -88,7 +88,7 @@ def test_the_service_logs_digests_both_engines_can_be_joined_on(tmp_path):
     settings = replace(SETTINGS, decision_log_path=str(path), decision_digest_key=KEY)
 
     class FakePipeline:
-        def run(self, data, context):
+        def run(self, data, context, arrived=None):
             return {"output": json.dumps(canhoto()), "_meta": {"id": "abc"}}
 
     client = TestClient(create_app(settings, FakePipeline()))

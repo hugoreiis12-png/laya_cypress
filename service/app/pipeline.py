@@ -19,5 +19,5 @@ class Pipeline:
         self._graph = build_graph(Engines(settings, analyze, laya, signature_model, shadow, hermes, judge,
                                           judge_capacity, auditor))
 
-    def run(self, data: bytes, context: dict[str, Any]) -> dict[str, Any]:
-        return self._graph.invoke(initial_state(data, context))["envelope"]
+    def run(self, data: bytes, context: dict[str, Any], arrived: float | None = None) -> dict[str, Any]:
+        return self._graph.invoke(initial_state(data, context, arrived))["envelope"]

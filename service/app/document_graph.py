@@ -40,9 +40,13 @@ class DocumentState(TypedDict, total=False):
     envelope: dict[str, Any]
 
 
-def initial_state(data: bytes, context: dict[str, Any]) -> DocumentState:
-    meta = {"contrato": CONTRACT_VERSION, "id": context.get("id"), "tentativas": []}
-    return DocumentState(data=data, started=time.monotonic(), meta=meta, decided=None, confidence=None, reason=None)
+def initial_state(data: bytes, context: dict[str, Any], arrived: float | None = None) -> DocumentState:
+    """The deadline and the latency count from the request's arrival, so the wait for a worker is already spent."""
+    now = time.monotonic()
+    started = now if arrived is None else min(arrived, now)
+    meta = {"contrato": CONTRACT_VERSION, "id": context.get("id"), "tentativas": [],
+            "espera_fila_ms": int((now - started) * MS_PER_SECOND)}
+    return DocumentState(data=data, started=started, meta=meta, decided=None, confidence=None, reason=None)
 
 
 def _finish(meta: dict[str, Any], started: float, evidence: Evidence | None = None) -> dict[str, Any]:

@@ -62,7 +62,7 @@ def decision_record(envelope: dict[str, Any], digest_key: str = "") -> dict[str,
         "sombra": {key: shadow[key] for key in SHADOW_KEYS if key in shadow} or None,
         "juiz": meta.get("juiz"), "falhas": [attempt["motor"] for attempt in meta.get("tentativas", [])],
         "erros": _failure_reasons(meta.get("tentativas", [])),
-        "latencia_ms": meta.get("latencia_ms"), "rotacao": meta.get("rotacao"),
+        "latencia_ms": meta.get("latencia_ms"), "espera_fila_ms": meta.get("espera_fila_ms"), "rotacao": meta.get("rotacao"),
     }
 
 

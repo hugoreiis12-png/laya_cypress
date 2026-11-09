@@ -4,6 +4,7 @@ import binascii
 import hmac
 import logging
 import threading
+import time
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
@@ -81,12 +82,14 @@ def create_app(settings: config.Settings | None = None, pipeline: Pipeline | Non
 
     @app.post("/v1/extrair-documento")
     def extract(req: ExtractionRequest, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        arrived = time.monotonic()
         _authorize(authorization, settings.api_key)
         data = _decode(req.imagem_base64)
         if not workers.acquire(timeout=settings.queue_timeout):
+            decisions.write({"evento": "fila_cheia", "id": (req.contexto.id if req.contexto else None)})
             raise HTTPException(status_code=503, detail="serviço ocupado; tente novamente")
         try:
-            result = pipeline.run(data, req.contexto.model_dump() if req.contexto else {})
+            result = pipeline.run(data, req.contexto.model_dump() if req.contexto else {}, arrived)
         finally:
             workers.release()
         decisions.write(decision_record(result, settings.decision_digest_key))
