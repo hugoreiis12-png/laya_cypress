@@ -89,3 +89,29 @@ def test_a_readable_photo_is_never_zoomed(tesseract):
     fake = tesseract(osd_rotation=270)
     ocr.run(photo_readable_only_at_270())
     assert fake.reads == 1
+
+
+class UpsideDownTesseract(FakeTesseract):
+    """OSD is 180 degrees off: that orientation yields plenty of characters, but all low confidence."""
+
+    def image_to_data(self, gray, lang=None, output_type=None):
+        self.reads += 1
+        readable = gray[0, 0] == 255
+        data = {key: [0] * WORDS_WHEN_READABLE for key in DATA_KEYS}
+        data["text"] = ["palavra"] * WORDS_WHEN_READABLE
+        data["conf"] = [90.0 if readable else 25.0] * WORDS_WHEN_READABLE
+        return data
+
+
+def test_a_long_but_low_confidence_read_does_not_stop_the_search_for_the_right_orientation(monkeypatch):
+    fake = UpsideDownTesseract(osd_rotation=180)
+    monkeypatch.setitem(sys.modules, "pytesseract", fake)
+    result, _ = ocr.run(photo_readable_only_at_270())
+    assert result.rotation == 270 and fake.reads == len(ocr.CANDIDATE_ROTATIONS)
+    assert all(word.confidence >= ocr.CONFIDENT_WORD for word in result.words)
+
+
+def test_a_confident_read_of_few_words_still_tries_the_other_orientations(tesseract):
+    fake = tesseract(osd_rotation=180)
+    ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
+    assert fake.reads > 1

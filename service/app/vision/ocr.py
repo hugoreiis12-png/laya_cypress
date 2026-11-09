@@ -12,6 +12,9 @@ LANG = "por"
 MIN_WORD_CONFIDENCE = 0.0
 MIN_READABLE_CHARS = 40  # below this OSD may have picked the wrong orientation; same cut the judge uses
 CANDIDATE_ROTATIONS = (0, 90, 180, 270)
+CONFIDENT_WORD = 70.0  # Tesseract confidence (0-100) from which a word counts as read, not guessed
+MIN_WORD_LETTERS = 3
+MIN_CONFIDENT_WORDS = 10  # upside-down text still yields many characters, but almost no confident words
 UPSCALE = 2.0  # small print (a WhatsApp-sized full page) is below what Tesseract reads; one enlarged retry
 BOX_KEYS = ("left", "top", "width", "height")
 
@@ -66,14 +69,29 @@ def _characters(read: tuple[OcrResult, np.ndarray]) -> int:
     return len(read[0].text.strip())
 
 
+def _confident_words(read: tuple[OcrResult, np.ndarray]) -> int:
+    return sum(len(word.text) >= MIN_WORD_LETTERS and word.confidence >= CONFIDENT_WORD for word in read[0].words)
+
+
+def _quality(read: tuple[OcrResult, np.ndarray]) -> tuple[int, int]:
+    return _confident_words(read), _characters(read)
+
+
+def _readable(read: tuple[OcrResult, np.ndarray]) -> bool:
+    return _characters(read) >= MIN_READABLE_CHARS and _confident_words(read) >= MIN_CONFIDENT_WORDS
+
+
 def run(image: np.ndarray) -> tuple[OcrResult, np.ndarray]:
-    """Returns the OCR result and the upright image its word boxes refer to; a short read tries every rotation, then a zoom."""
+    """Returns the OCR result and the upright image its word boxes refer to.
+
+    A read that is short or mostly low-confidence (wrong orientation) tries every rotation, then a zoom.
+    """
     first = _read(image, detect_rotation(to_gray(image)))
-    if _characters(first) >= MIN_READABLE_CHARS:
+    if _readable(first):
         return first
     others = [_read(image, rotation) for rotation in CANDIDATE_ROTATIONS if rotation != first[0].rotation]
-    best = max([first, *others], key=_characters)  # a tie keeps the orientation OSD chose
-    if _characters(best) >= MIN_READABLE_CHARS:
+    best = max([first, *others], key=_quality)  # a tie keeps the orientation OSD chose
+    if _readable(best):
         return best
     zoomed = _read(image, best[0].rotation, UPSCALE)
-    return zoomed if _characters(zoomed) > _characters(best) else best
+    return zoomed if _quality(zoomed) > _quality(best) else best
