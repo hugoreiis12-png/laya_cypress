@@ -107,3 +107,11 @@ def test_item_line_formats(line, produto, qnt, codigo):
 def test_chat_noise_is_ignored():
     chat = "Encaminhada\nBom dia\n10:32\nAlface 10\nok\nRúcula 5"
     assert [i["produto"] for i in items.extract(chat)] == ["Alface", "Rúcula"]
+
+
+def test_invoice_number_printed_as_plain_n_followed_by_the_series():
+    assert invoice_number("DANFE\nN. 117.986\nSÉRIE 1\nFOLHA 1/1") == "117986"
+
+
+def test_a_plain_n_without_the_series_is_not_an_invoice_number():
+    assert invoice_number("RUA DAS FLORES N. 546\nBAIRRO CENTRO") == ""
