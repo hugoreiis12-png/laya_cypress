@@ -111,6 +111,11 @@ def test_decision_log_keeps_why_the_judge_failed():
     assert record["erros"] == [{"motor": "juiz_assinatura", "erro": "fora do ar"}]
 
 
+def test_decision_log_keeps_the_rotation_the_trainer_needs_to_crop():
+    envelope = {"output": json.dumps({"tipo_documento": "canhoto"}), "_meta": {"rotacao": 270}}
+    assert decision_record(envelope)["rotacao"] == 270
+
+
 def test_decision_log_cuts_long_failure_reasons():
     envelope = {"output": json.dumps({"tipo_documento": "canhoto"}), "_meta": {"tentativas": [{"motor": "juiz", "erro": "x" * 500}]}}
     assert len(decision_record(envelope)["erros"][0]["erro"]) == 200

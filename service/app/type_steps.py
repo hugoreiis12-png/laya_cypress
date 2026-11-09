@@ -114,7 +114,7 @@ def read_key(engines: Engines, data: bytes, evidence: Evidence, meta: dict[str, 
     if remaining < MIN_REVIEW_SECONDS:
         return None
     outcome, key = key_reading.read(engines.judge, engines.judge_capacity, data,
-                                    min(remaining, settings.judge_read_timeout), settings.whitelist_cnpj)
+                                    min(remaining, settings.judge_read_timeout), settings.whitelist_cnpj, evidence.text)
     meta["leitura_juiz"] = outcome
     return extract_fields(replace(evidence, access_key=key), settings.whitelist_cnpj) if key else None
 

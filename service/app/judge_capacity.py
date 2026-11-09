@@ -1,4 +1,4 @@
-"""Admits a judge call only while the vLLM has room, because it also serves other work. Never waits."""
+"""Admits a judge call only while the vLLM has room, because it also serves other work. Waits only for this service's own slot, briefly."""
 import re
 import threading
 
@@ -56,7 +56,7 @@ class JudgeCapacity:
 
     def enter(self) -> str | None:
         """Returns None when admitted, otherwise why not; an admitted caller must call leave."""
-        if not self._slots.acquire(blocking=False):
+        if not self._slots.acquire(timeout=self._settings.judge_wait_seconds):
             return BUSY_HERE
         refusal = self._load_refusal()
         if refusal:

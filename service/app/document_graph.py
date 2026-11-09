@@ -52,10 +52,16 @@ def _finish(meta: dict[str, Any], started: float, evidence: Evidence | None = No
     return meta
 
 
-def _inconclusive(engines: Engines, doc_type: str, meta: dict[str, Any]) -> bool:
-    if doc_type not in engines.settings.conclusive_types or meta["auditoria"]["problemas"]:
-        return True
-    return doc_type == "canhoto" and meta.get("estado_assinatura") not in (SIGNED, UNSIGNED)
+def _inconclusive_reasons(engines: Engines, doc_type: str, meta: dict[str, Any]) -> list[str]:
+    """Why the case goes to the reserve; an empty list means the service answers alone."""
+    reasons = []
+    if doc_type not in engines.settings.conclusive_types:
+        reasons.append("tipo_sem_resposta_propria")
+    if meta["auditoria"]["problemas"]:
+        reasons.append("auditoria")
+    if doc_type == "canhoto" and meta.get("estado_assinatura") not in (SIGNED, UNSIGNED):
+        reasons.append("assinatura_nao_confirmada")
+    return reasons
 
 
 def _hermes_audit(engines: Engines, state: DocumentState) -> None:
@@ -85,6 +91,7 @@ class _Steps:
             meta["tentativas"].append({"motor": "visao", "erro": str(exc)})
             meta["estado_assinatura"] = INVALID_IMAGE
             meta["inconclusivo"] = True
+            meta["motivos_inconclusivo"] = ["imagem_ilegivel"]
             return {"meta": meta}
         fields = extract_fields(evidence, self.engines.settings.whitelist_cnpj)
         return {"meta": meta, "evidence": evidence, "fields": fields}
@@ -142,7 +149,10 @@ class _Steps:
     def close(self, state: DocumentState) -> DocumentState:
         meta, evidence, fields = state["meta"], state["evidence"], state["fields"]
         meta["leitura"] = audit.reading(evidence.text, evidence.access_key, fields)
-        meta["inconclusivo"] = _inconclusive(self.engines, state["doc_type"], meta)
+        reasons = _inconclusive_reasons(self.engines, state["doc_type"], meta)
+        meta["inconclusivo"] = bool(reasons)
+        if reasons:
+            meta["motivos_inconclusivo"] = reasons
         return {"envelope": contract.envelope(state["built"], _finish(meta, state["started"], evidence))}
 
 

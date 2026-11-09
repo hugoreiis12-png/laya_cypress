@@ -1,0 +1,45 @@
+services:
+  laya-trainer:
+    build:
+      context: ..
+      dockerfile: trainer/Dockerfile
+    image: laya-trainer:local
+    container_name: laya-trainer
+    restart: unless-stopped
+    environment:
+      HOME: /tmp
+      TRAINER_ID_SECRET: ${TRAINER_ID_SECRET:?defina TRAINER_ID_SECRET no stack}
+      KAGGLE_USERNAME: ${KAGGLE_USERNAME:?defina KAGGLE_USERNAME no stack}
+      KAGGLE_API_TOKEN: ${KAGGLE_API_TOKEN:?defina KAGGLE_API_TOKEN no stack}
+      TRAINER_KINDS: ${TRAINER_KINDS:-visao}
+      TRAINER_WINDOW: ${TRAINER_WINDOW:-22:00-06:00}
+      TRAINER_PAUSE_SECONDS: ${TRAINER_PAUSE_SECONDS:-240}
+      TRAINER_MIN_NEW_SAMPLES: ${TRAINER_MIN_NEW_SAMPLES:-200}
+      TRAINER_TEST_PERCENT: ${TRAINER_TEST_PERCENT:-15}
+      TRAINER_MIN_ERROR_REDUCTION: ${TRAINER_MIN_ERROR_REDUCTION:-0.20}
+      HERMES_URL: ${HERMES_URL:-}
+      HERMES_MODEL: ${HERMES_MODEL:-hermes3:8b}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      REPORT_TO: ${REPORT_TO:-}
+    volumes:
+      - /opt/laya-cypress/dados:/srv/dados:ro
+      - /opt/laya-trainer/data:/srv/trainer
+    cpus: "1.0"
+    cpu_shares: 256
+    mem_limit: 1g
+    pids_limit: 128
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    security_opt:
+      - no-new-privileges:true
+    networks: [laya]
+
+networks:
+  laya:
+    external: true
+    name: laya_default

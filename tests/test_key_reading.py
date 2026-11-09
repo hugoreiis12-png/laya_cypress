@@ -74,6 +74,25 @@ def test_a_key_that_fails_any_check_is_not_used(read, expected):
     assert meta["inconclusivo"] is True and meta["leitura_juiz"] == expected
 
 
+def test_the_note_number_printed_in_the_ocr_text_must_match_the_key():
+    agreeing, _, _ = run(FakeJudge(), text="DANFE Nº 000.123.456 SÉRIE 1")
+    body, meta, _ = run(FakeJudge(), text="DANFE Nº 000.999.999 SÉRIE 1")
+    assert agreeing["tipo_documento"] == "canhoto" and agreeing["qrcode"]["chave"] == KEY
+    assert body["tipo_documento"] == "imagem_invalida" and meta["leitura_juiz"] == key_reading.TEXT_CONFLICT
+    assert meta["inconclusivo"] is True
+
+
+def test_a_different_whitelisted_issuer_printed_in_the_text_is_a_conflict():
+    settings = replace(ENGINE, whitelist_cnpj=("36895856000110", "15268427000142"))
+    _, meta, _ = run(FakeJudge(), text="Emitente CNPJ 15.268.427/0001-42", settings=settings)
+    assert meta["leitura_juiz"] == key_reading.TEXT_CONFLICT
+
+
+def test_silence_in_the_text_is_not_a_conflict():
+    _, meta, _ = run(FakeJudge(), text="texto sem número nem CNPJ")
+    assert meta["leitura_juiz"] == key_reading.FOUND
+
+
 def test_it_stays_off_by_default():
     judge = FakeJudge()
     body, _, _ = run(judge, settings=replace(ENGINE, judge_read_key=False))

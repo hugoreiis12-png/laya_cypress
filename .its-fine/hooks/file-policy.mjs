@@ -81,7 +81,7 @@ try {
     process.exit(0);
   }
   // Standalone installation only authorizes owned outputs. Fail closed on links.
-  if (rel.startsWith('../') || isAbsolute(rel) || !['.its-fine/','_itsfine_runs/','docs/registro/','service/','tests/'].some(prefix=>rel.startsWith(prefix))) deny('Escrita fora das pastas do ITS-FINE.');
+  if (rel.startsWith('../') || isAbsolute(rel) || !['.its-fine/','_itsfine_runs/','docs/registro/','service/','tests/', 'trainer/'].some(prefix=>rel.startsWith(prefix))) deny('Escrita fora das pastas do ITS-FINE.');
   let existing = abs;
   while (!existsSync(existing) && dirname(existing) !== existing) existing = dirname(existing);
   if (norm(realpathSync(existing)) !== norm(existing)) deny('Alias de caminho exige verificação manual.');

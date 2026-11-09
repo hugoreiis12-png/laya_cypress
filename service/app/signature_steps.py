@@ -28,7 +28,7 @@ def _ask_signature(engines: Engines, data: bytes, started: float, meta: dict[str
         meta["revisao_assinatura"] = {"motor": "juiz", "resultado": "sem_capacidade"}
         return None
     try:
-        return engines.judge.assess_signature(data, remaining)
+        return engines.judge.assess_signature(data, engines.seconds_left(started))
     except JudgeError as exc:
         log.warning("juiz indisponível na revisão: %s", exc)
         meta["tentativas"].append({"motor": "juiz_assinatura", "erro": str(exc)})

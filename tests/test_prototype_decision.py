@@ -1,4 +1,5 @@
 import json
+import threading
 from dataclasses import replace
 
 import httpx
@@ -169,10 +170,22 @@ def test_unreachable_metrics_count_as_no_room():
 
 
 def test_only_one_judge_call_at_a_time_by_default():
-    capacity = capacity_for(IDLE)
+    capacity = capacity_for(IDLE, config.load({**ENV, "JUDGE_WAIT_SECONDS": "0"}))
     assert capacity.enter() is None and capacity.enter() == BUSY_HERE
     capacity.leave()
     assert capacity.enter() is None
+
+
+def test_a_case_waits_for_the_slot_instead_of_going_to_the_reserve():
+    capacity = capacity_for(IDLE, config.load({**ENV, "JUDGE_WAIT_SECONDS": "2"}))
+    assert capacity.enter() is None
+    threading.Timer(0.2, capacity.leave).start()
+    assert capacity.enter() is None
+
+
+def test_the_wait_for_the_slot_is_bounded():
+    capacity = capacity_for(IDLE, config.load({**ENV, "JUDGE_WAIT_SECONDS": "0.1"}))
+    assert capacity.enter() is None and capacity.enter() == BUSY_HERE
 
 
 def test_refused_call_gives_its_slot_back():

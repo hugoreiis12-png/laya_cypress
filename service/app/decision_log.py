@@ -56,12 +56,13 @@ def decision_record(envelope: dict[str, Any], digest_key: str = "") -> dict[str,
         "revisao_assinatura": meta.get("revisao_assinatura"),
         "tipo_em_duvida": meta.get("tipo_em_duvida"), "veto_tipo": meta.get("veto_tipo"),
         "laya_observado": meta.get("laya_observado"), "capacidade_juiz": meta.get("capacidade_juiz"),
-        "votos": meta.get("votos"), "inconclusivo": meta.get("inconclusivo"), "auditoria": meta.get("auditoria"),
+        "votos": meta.get("votos"), "inconclusivo": meta.get("inconclusivo"),
+        "motivos_inconclusivo": meta.get("motivos_inconclusivo"), "auditoria": meta.get("auditoria"),
         "leitura": meta.get("leitura"), "leitura_juiz": meta.get("leitura_juiz"),
         "sombra": {key: shadow[key] for key in SHADOW_KEYS if key in shadow} or None,
         "juiz": meta.get("juiz"), "falhas": [attempt["motor"] for attempt in meta.get("tentativas", [])],
         "erros": _failure_reasons(meta.get("tentativas", [])),
-        "latencia_ms": meta.get("latencia_ms"),
+        "latencia_ms": meta.get("latencia_ms"), "rotacao": meta.get("rotacao"),
     }
 
 

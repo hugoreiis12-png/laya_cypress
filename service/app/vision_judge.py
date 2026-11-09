@@ -12,6 +12,7 @@ from .config import Settings
 
 ENDPOINT = "/v1/chat/completions"
 MAX_TOKENS = 2048
+SHORT_ANSWER_TOKENS = 256
 MIN_CONFIDENCE = 0.0
 MAX_CONFIDENCE = 100.0
 PNG_MAGIC = b"\x89PNG"
@@ -81,11 +82,21 @@ class VisionJudge:
         self._settings = settings
         self._http = http or httpx.Client()
 
-    def _ask(self, data: bytes, prompt: str, timeout: float) -> str:
+    def _body(self, data: bytes, prompt: str, short_answer: bool) -> dict[str, object]:
+        """Without reasoning a JSON answer needs few tokens; with it, the reasoning has to fit too."""
         settings = self._settings
         message = {"role": "user", "content": [{"type": "text", "text": prompt},
                                                {"type": "image_url", "image_url": {"url": data_url(data)}}]}
-        body = {"model": settings.judge_model, "messages": [message], "temperature": 0, "max_tokens": MAX_TOKENS}
+        body: dict[str, object] = {"model": settings.judge_model, "messages": [message], "temperature": 0,
+                                   "max_tokens": MAX_TOKENS}
+        if settings.judge_disable_thinking:
+            body["chat_template_kwargs"] = {"enable_thinking": False}
+            body["max_tokens"] = SHORT_ANSWER_TOKENS if short_answer else MAX_TOKENS
+        return body
+
+    def _ask(self, data: bytes, prompt: str, timeout: float, short_answer: bool = False) -> str:
+        settings = self._settings
+        body = self._body(data, prompt, short_answer)
         try:
             response = self._http.post(settings.judge_url + ENDPOINT, json=body, timeout=timeout)
             response.raise_for_status()
@@ -101,7 +112,8 @@ class VisionJudge:
         return text
 
     def read_access_key(self, data: bytes, timeout: float) -> str:
-        return parse_key(self._ask(data, KEY_PROMPT, timeout))
+        return parse_key(self._ask(data, KEY_PROMPT, timeout, short_answer=True))
 
     def assess_signature(self, data: bytes, timeout: float) -> SignatureOpinion:
-        return parse_signature(self._ask(data, SIGNATURE_PROMPT, min(timeout, self._settings.judge_timeout)))
+        wait = min(timeout, self._settings.judge_timeout)
+        return parse_signature(self._ask(data, SIGNATURE_PROMPT, wait, short_answer=True))
