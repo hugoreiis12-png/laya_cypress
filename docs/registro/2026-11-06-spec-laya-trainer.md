@@ -183,3 +183,10 @@ Compose próprio no mesmo repositório, com Portainer, na rede `laya_default`, s
 - Treino na VM de produção.
 - Mudar a decisão atual de produção (vLLM para assinatura, regras para tipo).
 - Rotulagem humana em volume. Só a amostra das discordâncias.
+
+## Fonte de fotos: caixa de entrada (implementada em 09/11)
+- **Quem grava:** o n8n salva a foto original como `<_meta.id>.jpg` em `/opt/laya-trainer/data/inbox/` (no container: `/srv/trainer/inbox`). Só casos que também tiveram resposta do Gemini valem para o consenso. A pasta precisa de dono/permissão para o n8n gravar e para o uid 10002 do trainer ler e apagar.
+- **O que o trainer faz (`inbox.py`, `dataset.py`):** quando o `decisoes.jsonl` já tem a decisão do id, recorta a faixa do recebedor (com a `rotacao` do serviço), grava em `tiras/<pseudônimo>.jpg` e **apaga a original**. A faixa nunca leva o id cru.
+- **Descartes:** nome fora de `[A-Za-z0-9_-]{1,64}` ou extensão estranha, imagem ilegível, e original sem decisão há mais de 3 dias. Faixas sem consenso são apagadas após 30 dias.
+- **Treino:** só entram faixas com voto concordante de vLLM e Gemini (`consensus.partition`). O pacote exige as duas classes (mínimo 2 exemplos cada) e usa o split congelado por pseudônimo.
+- **Ainda fora:** o tipo `laya` (texto) não é atendido: falta o removedor de nomes e o script do kernel.

@@ -146,8 +146,8 @@ def test_status_lookup_errors_keep_the_job_for_the_next_tick(tmp_path):
     assert load_state(tmp_path / "estado.json").running is not None
 
 
-def test_unconfigured_data_source_keeps_the_loop_idle(tmp_path):
-    from trainer.app.main import UnconfiguredData
+def test_data_source_without_samples_keeps_the_loop_idle(tmp_path):
+    from trainer.app.dataset import InboxData
 
-    cycle, _ = build(tmp_path, data=UnconfiguredData())
+    cycle, _ = build(tmp_path, data=InboxData(settings(state_dir=tmp_path / "s", decisions_path=tmp_path / "x.jsonl")))
     assert cycle.tick() == scheduler.IDLE_ACTION

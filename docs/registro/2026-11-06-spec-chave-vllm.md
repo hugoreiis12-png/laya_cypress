@@ -36,7 +36,7 @@ Rodar `medir_chave_vllm.py` no .160 sobre o gold set (precisa de `/tmp/gold`):
 
 ## 5. Como ligar
 1. Medir com `JUDGE_DISABLE_THINKING` desligado e ligado (ver `2026-11-06-spec-leitura.md`): com raciocínio, 8 s pode não bastar e a pergunta vira `falha`.
-2. No `compose.yaml`, acrescentar ao `environment`: `JUDGE_READ_KEY: ${JUDGE_READ_KEY:-}` e `JUDGE_READ_TIMEOUT: ${JUDGE_READ_TIMEOUT:-8}`.
+2. No `compose.yaml`, acrescentar ao `environment`: `JUDGE_READ_KEY: ${JUDGE_READ_KEY:-}` e `JUDGE_READ_TIMEOUT: ${JUDGE_READ_TIMEOUT:-8}` (com padrão numérico: vazio quebra o `float`).
 3. Definir `JUDGE_READ_KEY=1` no stack do Portainer; reverter é remover a variável.
 4. Acompanhar `leitura_juiz` no `decisoes.jsonl`: a taxa de `chave` e, principalmente, de `conflito_com_o_texto` e `invalida`.
 

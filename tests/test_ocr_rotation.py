@@ -63,4 +63,29 @@ def test_readable_osd_rotation_is_kept_without_extra_reads(tesseract):
 def test_unreadable_photo_keeps_the_osd_rotation(tesseract):
     fake = tesseract(osd_rotation=180)
     result, _ = ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
-    assert result.rotation == 180 and result.text == "" and fake.reads == len(ocr.CANDIDATE_ROTATIONS)
+    assert result.rotation == 180 and result.text == "" and fake.reads == len(ocr.CANDIDATE_ROTATIONS) + 1
+
+
+class SmallPrintTesseract(FakeTesseract):
+    """Reads nothing until the image is enlarged; its word boxes then refer to the enlarged image."""
+
+    def image_to_data(self, gray, lang=None, output_type=None):
+        self.reads += 1
+        count = WORDS_WHEN_READABLE if gray.shape[1] >= ocr.UPSCALE * WIDTH else 0
+        data = {key: [0] * count for key in DATA_KEYS}
+        data["text"], data["conf"] = ["palavra"] * count, [90.0] * count
+        data["left"], data["width"] = [100] * count, [40] * count
+        return data
+
+
+def test_small_print_is_read_after_a_zoom_with_boxes_in_the_original_scale(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pytesseract", SmallPrintTesseract(osd_rotation=0))
+    result, upright = ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
+    assert len(result.text) >= ocr.MIN_READABLE_CHARS and upright.shape[1] == WIDTH
+    assert result.words[0].box.left == 50 and result.words[0].box.width == 20
+
+
+def test_a_readable_photo_is_never_zoomed(tesseract):
+    fake = tesseract(osd_rotation=270)
+    ocr.run(photo_readable_only_at_270())
+    assert fake.reads == 1
