@@ -159,3 +159,15 @@ def test_confidence_is_clamped():
 def test_unusable_opinions_are_errors(answer):
     with pytest.raises(JudgeError):
         parse_signature(answer)
+
+
+def test_judge_prompt_looks_outside_the_box_and_counts_a_pen_stroke_over_the_stamp():
+    sent = []
+
+    def answer(request):
+        sent.append(json.loads(request.content)["messages"][0]["content"][0]["text"])
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"possui_assinatura": true, "confianca": 90}'}}]})
+
+    VisionJudge(load(ENV), httpx.Client(transport=httpx.MockTransport(answer))).assess_signature(b"jpeg", 5.0)
+    assert "fora do retângulo" in sent[0] and "toda a faixa" in sent[0] and "cruzando o carimbo" in sent[0]
+    assert "Carimbo sozinho" in sent[0] and "sem nenhum traço à mão" in sent[0]
