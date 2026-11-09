@@ -1,20 +1,20 @@
-"""Turns the photos n8n drops in the inbox into anonymized receiver strips; the original never outlives the cut."""
+"""Turns the photos n8n drops in the inbox into anonymized derivatives; the original never outlives the cut."""
 import re
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from .anonymizer import pseudonym
-from .consensus import Sample
-from .cropper import CropError, receiver_strip
+from .cropper import receiver_strip
 
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 PHOTO_SUFFIXES = {".jpg", ".jpeg", ".png"}
 SECONDS_PER_DAY = 86400
 WAIT_DAYS_FOR_DECISION = 3  # an original whose decision never shows up is not kept
-STRIP_TTL_DAYS = 30  # a strip that never reached a consensus is not kept either
+KEPT_DAYS = 30  # a derivative that never reached a consensus is not kept either
 STRIP_SUFFIX = ".jpg"
+Cutter = Callable[[bytes, int, str], None]  # (photo bytes, rotation from the decision, raw id) -> writes a derivative
 
 
 @dataclass(frozen=True)
@@ -24,50 +24,56 @@ class IngestReport:
     dropped: int = 0
 
 
+def derived_path(directory: Path, secret: str, item_id: str, suffix: str = STRIP_SUFFIX) -> Path:
+    return directory / f"{pseudonym(secret, item_id)}{suffix}"
+
+
 def strip_path(strips: Path, secret: str, item_id: str) -> Path:
-    return strips / f"{pseudonym(secret, item_id)}{STRIP_SUFFIX}"
+    return derived_path(strips, secret, item_id)
+
+
+def strip_cutter(strips: Path, secret: str) -> Cutter:
+    def cut(data: bytes, rotation: int, item_id: str) -> None:
+        target = strip_path(strips, secret, item_id)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(receiver_strip(data, rotation))
+    return cut
 
 
 def _photos(inbox: Path) -> list[Path]:
-    if not inbox.is_dir():
-        return []
-    return [path for path in sorted(inbox.iterdir()) if path.is_file()]
+    return [path for path in sorted(inbox.iterdir()) if path.is_file()] if inbox.is_dir() else []
 
 
-def _cut(photo: Path, sample: Sample, target: Path) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(receiver_strip(photo.read_bytes(), sample.rotation))
+def _process(photo: Path, rotation: int, cutters: Sequence[Cutter]) -> bool:
+    try:
+        data = photo.read_bytes()
+        for cutter in cutters:
+            cutter(data, rotation, photo.stem)
+        return True
+    except ValueError:  # unreadable image, empty OCR or strip too small: dropped, never guessed
+        return False
 
 
-def ingest(inbox: Path, strips: Path, samples: Mapping[str, Sample], secret: str,
+def ingest(inbox: Path, known: Mapping[str, int], cutters: Sequence[Cutter],
            clock: Callable[[], float] = time.time) -> IngestReport:
-    """Cuts every photo whose decision is known, then deletes it; unsafe names, bad images and stale files are dropped."""
+    """Runs every cutter on a photo whose decision is known (id -> rotation), then deletes it."""
     cut = waiting = dropped = 0
     for photo in _photos(inbox):
-        sample = samples.get(photo.stem)
         stale = clock() - photo.stat().st_mtime > WAIT_DAYS_FOR_DECISION * SECONDS_PER_DAY
-        if photo.suffix.lower() not in PHOTO_SUFFIXES or not SAFE_ID.match(photo.stem):
-            photo.unlink()
-            dropped += 1
-        elif sample is None and not stale:
+        unsafe = photo.suffix.lower() not in PHOTO_SUFFIXES or not SAFE_ID.match(photo.stem)
+        if not unsafe and photo.stem not in known and not stale:
             waiting += 1
-        elif sample is None:
-            photo.unlink()
-            dropped += 1
-        else:
-            try:
-                _cut(photo, sample, strip_path(strips, secret, photo.stem))
-                cut += 1
-            except CropError:
-                dropped += 1
-            photo.unlink()
+            continue
+        done = not unsafe and photo.stem in known and _process(photo, known[photo.stem], cutters)
+        photo.unlink()
+        cut, dropped = cut + done, dropped + (not done)
     return IngestReport(cut, waiting, dropped)
 
 
-def prune_strips(strips: Path, clock: Callable[[], float] = time.time) -> int:
-    if not strips.is_dir():
+def prune(directory: Path, clock: Callable[[], float] = time.time) -> int:
+    if not directory.is_dir():
         return 0
-    old = [path for path in strips.glob(f"*{STRIP_SUFFIX}") if clock() - path.stat().st_mtime > STRIP_TTL_DAYS * SECONDS_PER_DAY]
+    old = [path for path in directory.iterdir() if path.is_file() and clock() - path.stat().st_mtime > KEPT_DAYS * SECONDS_PER_DAY]
     for path in old:
         path.unlink()
     return len(old)
