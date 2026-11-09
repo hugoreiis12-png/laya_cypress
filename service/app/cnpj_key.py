@@ -18,6 +18,8 @@ _CNPJ_PATTERN = re.compile(r"(?<!\d)\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}(?!\d)")
 _NUMBER_PATTERN = re.compile(
     r"(?:N[º°o]|NF-?e?|N[úu]mero)\.?\s*:?\s*(\d{1,3}(?:\.\d{3})+|\d{1,9})(?!\d)", re.IGNORECASE
 )
+# "N. 117.986 SÉRIE 1": some DANFEs print a plain "N." and the series right after it anchors the number
+_SERIES_NUMBER_PATTERN = re.compile(r"(?<![A-Za-z])N\.\s*(\d{1,3}(?:\.\d{3})+|\d{1,9})\s+S[ée]rie(?![a-z])", re.IGNORECASE)
 
 
 def digits(text: object) -> str:
@@ -76,5 +78,6 @@ def pick_issuer(text: str, whitelist: tuple[str, ...], key: str = "") -> str:
 def invoice_number(text: str, key: str = "") -> str:
     if key and access_key_is_valid(key):
         return str(int(key[KEY_NUMBER]))
-    match = _NUMBER_PATTERN.search(strip_access_keys(text))
+    clean = strip_access_keys(text)
+    match = _NUMBER_PATTERN.search(clean) or _SERIES_NUMBER_PATTERN.search(clean)
     return digits(match.group(1)).lstrip("0") if match else ""
