@@ -49,7 +49,7 @@ def evaluate(model: YOLO) -> dict:
             if folder.name in SAFETY_KEYS and predicted == SIGNED:
                 safety[SAFETY_KEYS[folder.name]] += 1
     count = sum(total.values())
-    return {"teste": INPUT.name, "erro": sum(wrong.values()) / count if count else 1.0,
+    return {"teste": json.loads((INPUT / "manifest.json").read_text(encoding="utf-8"))["teste"], "erro": sum(wrong.values()) / count if count else 1.0,
             "por_classe": {name: wrong.get(name, 0) / size for name, size in total.items()},
             "seguranca": safety, "confianca": sum(confidences) / len(confidences) if confidences else 0.0}
 
