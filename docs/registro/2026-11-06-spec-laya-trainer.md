@@ -190,3 +190,11 @@ Compose próprio no mesmo repositório, com Portainer, na rede `laya_default`, s
 - **Descartes:** nome fora de `[A-Za-z0-9_-]{1,64}` ou extensão estranha, imagem ilegível, e original sem decisão há mais de 3 dias. Faixas sem consenso são apagadas após 30 dias.
 - **Treino:** só entram faixas com voto concordante de vLLM e Gemini (`consensus.partition`). O pacote exige as duas classes (mínimo 2 exemplos cada) e usa o split congelado por pseudônimo.
 - **Ainda fora:** o tipo `laya` (texto) não é atendido: falta o removedor de nomes e o script do kernel.
+
+## Treino do Laya (tipo do documento), implementado em 09/11
+- **Rótulo do tipo** (`type_consensus.py`): vale só quando o motor de regras do serviço e o Gemini concordam. O voto do Laya nunca rotula; decisões com `motor` diferente de `regras` não contam.
+- **Texto** (`text_source.py`): o trainer roda o OCR do próprio serviço (`service/app/vision`) na foto da caixa de entrada, aplica o anonimizador e a lista de termos permitidos (`allowlist.py`) e só então grava `textos/<pseudônimo>.txt`. O texto cru nunca vai a disco. O container ganhou Tesseract e `pytesseract`.
+- **Kernel** (`kernels/train_laya.py`): ajusta o encoder `convaiinnovations/laya-multilingual` (revisão fixada) para as 4 classes. Segurança medida: quantos pedidos, comprovantes e imagens inválidas do teste foram tomados por canhoto.
+- **Correção:** os dois kernels identificavam o teste pelo nome do dataset, que muda a cada job, e por isso nenhuma versão seria comparável à anterior. Agora usam o `teste` do `manifest.json`.
+- **Limites conhecidos:** (1) o Laya em produção lê o texto cru; uma versão treinada com texto filtrado só deve ir a produção com o mesmo filtro no serviço; (2) o conjunto de teste cresce com novas fotos, então a base precisa ser reavaliada nele; (3) `pesos.bin` são os pesos ajustados, falta convertê-los ao pacote do `hf-encoder` para servir; (4) nada disso foi executado no Kaggle.
+- Para habilitar: `TRAINER_KINDS=visao,laya` no stack do trainer.
