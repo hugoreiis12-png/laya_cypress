@@ -81,7 +81,7 @@ def run(detector=None, judge=None, capacity=None, auditor=None, settings=PROTOTY
 
 def capacity_for(metrics, settings=None):
     transport = httpx.MockTransport(lambda request: httpx.Response(200, text=metrics))
-    return JudgeCapacity(settings or config.load(ENV), httpx.Client(transport=transport))
+    return JudgeCapacity(settings or config.load({**ENV, "JUDGE_WAIT_SECONDS": "0"}), httpx.Client(transport=transport))
 
 
 def test_two_votes_release_the_canhoto_above_the_cutoff():
@@ -274,3 +274,41 @@ def test_decision_log_keeps_votes_without_content():
     record = decision_record(envelope)
     assert record["votos"]["detector"] is True and record["inconclusivo"] is False and record["capacidade_juiz"] == "ok"
     assert "36.895.856" not in json.dumps(record) and "DANFE" not in json.dumps(record)
+
+
+BUSY = 'vllm:num_requests_running{model_name="m"} 2.0\nvllm:num_requests_waiting{model_name="m"} 0.0\n'
+
+
+class Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+def polling_capacity(bodies, wait="5"):
+    answers, clock = list(bodies), Clock()
+
+    def handler(request):
+        return httpx.Response(200, text=answers.pop(0) if len(answers) > 1 else answers[0])
+
+    settings = config.load({**ENV, "JUDGE_WAIT_SECONDS": wait})
+    capacity = JudgeCapacity(settings, httpx.Client(transport=httpx.MockTransport(handler)), clock.sleep, lambda: clock.now)
+    return capacity, clock
+
+
+def test_a_busy_vllm_that_frees_up_within_the_patience_admits_the_case():
+    capacity, clock = polling_capacity([BUSY, BUSY, IDLE])
+    assert capacity.enter() is None and clock.now == 1.0
+
+
+def test_a_vllm_that_stays_busy_refuses_after_the_patience_and_gives_the_slot_back():
+    capacity, clock = polling_capacity([BUSY])
+    assert capacity.enter() == OVER_RUNNING and clock.now < 5.0
+    assert capacity.enter() == OVER_RUNNING
+
+
+def test_a_full_cache_is_refused_at_once_without_waiting():
+    capacity, clock = polling_capacity([IDLE + 'vllm:kv_cache_usage_perc{model_name="m"} 0.9\n'])
+    assert capacity.enter() == OVER_CACHE and clock.now == 0.0
