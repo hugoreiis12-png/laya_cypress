@@ -79,6 +79,17 @@ def parse_key(text: str) -> str:
         raise JudgeError(f"chave do juiz fora do formato: {type(exc).__name__}") from exc
 
 
+def parse_document(text: str) -> dict[str, object]:
+    match = JSON_OBJECT.search(text)
+    try:
+        answer = json.loads(match.group(0)) if match else None
+    except ValueError as exc:
+        raise JudgeError("análise do juiz fora do formato: JSON inválido") from exc
+    if not isinstance(answer, dict) or not isinstance(answer.get("tipo_documento"), str):
+        raise JudgeError("análise do juiz sem tipo_documento")
+    return answer
+
+
 class VisionJudge:
     def __init__(self, settings: Settings, http: httpx.Client | None = None) -> None:
         self._settings = settings
@@ -115,6 +126,9 @@ class VisionJudge:
 
     def read_access_key(self, data: bytes, timeout: float) -> str:
         return parse_key(self._ask(data, KEY_PROMPT, timeout, short_answer=True))
+
+    def analyze_document(self, data: bytes, prompt: str, timeout: float) -> dict[str, object]:
+        return parse_document(self._ask(data, prompt, timeout))
 
     def assess_signature(self, data: bytes, timeout: float) -> SignatureOpinion:
         wait = min(timeout, self._settings.judge_timeout)

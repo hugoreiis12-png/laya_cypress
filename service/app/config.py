@@ -29,6 +29,8 @@ DEFAULT_JUDGE_MAX_IN_FLIGHT = 1  # judge calls this service may hold open at onc
 DEFAULT_JUDGE_WAIT_SECONDS = 5.0  # how long a case waits for a free judge slot of this service before the reserve
 DEFAULT_JUDGE_MIN_VOTE_CONFIDENCE = 80.0  # provisional: below this the judge's vote does not count as signed
 DEFAULT_JUDGE_READ_TIMEOUT = 8.0  # the signature vote still has to fit before the review deadline
+DEFAULT_FULL_ANALYSIS_QUEUE = 50  # photos waiting for an idle vLLM; beyond this they are dropped and logged
+DEFAULT_FULL_ANALYSIS_TIMEOUT = 60.0  # a whole-document answer is long and runs off the request path
 DEFAULT_CONCLUSIVE_TYPES = "canhoto"  # other types go to the reserve until they are measured
 TYPE_ENGINE_LAYA = "laya"
 TYPE_ENGINE_RULES = "regras"  # rules and access key decide; Laya is only observed until it beats them
@@ -82,6 +84,9 @@ class Settings:
     judge_read_key: bool = False  # off until the directed question is measured: an invented key would attach to a wrong note
     judge_read_timeout: float = DEFAULT_JUDGE_READ_TIMEOUT
     judge_disable_thinking: bool = False  # off keeps the model's default reasoning; on asks vLLM to skip it per request
+    full_analysis: bool = False  # on: the vLLM also reads every photo whole, in the background, as a reference
+    full_analysis_queue: int = DEFAULT_FULL_ANALYSIS_QUEUE
+    full_analysis_timeout: float = DEFAULT_FULL_ANALYSIS_TIMEOUT
     type_engine: str = TYPE_ENGINE_LAYA
     signature_engine: str = SIGNATURE_ENGINE_CURRENT
     conclusive_types: tuple[str, ...] = (DEFAULT_CONCLUSIVE_TYPES,)
@@ -155,6 +160,9 @@ def load(env: Mapping[str, str] | None = None) -> Settings:
         judge_read_key=env.get("JUDGE_READ_KEY", "") == ENABLED,
         judge_read_timeout=float(env.get("JUDGE_READ_TIMEOUT", DEFAULT_JUDGE_READ_TIMEOUT)),
         judge_disable_thinking=env.get("JUDGE_DISABLE_THINKING", "") == ENABLED,
+        full_analysis=env.get("FULL_ANALYSIS", "") == ENABLED,
+        full_analysis_queue=int(env.get("FULL_ANALYSIS_QUEUE", DEFAULT_FULL_ANALYSIS_QUEUE)),
+        full_analysis_timeout=float(env.get("FULL_ANALYSIS_TIMEOUT", DEFAULT_FULL_ANALYSIS_TIMEOUT)),
         type_engine=type_engine,
         signature_engine=signature_engine,
         conclusive_types=tuple(item.strip() for item in env.get("CONCLUSIVE_TYPES", DEFAULT_CONCLUSIVE_TYPES).split(",")),
