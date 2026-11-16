@@ -37,3 +37,4 @@ services:
       - /tmp:size=256m
     security_opt:
       - no-new-privileges:true
+    network_mode: bridge  # only reaches Kaggle and SMTP; the host has no free subnet for a stack network
