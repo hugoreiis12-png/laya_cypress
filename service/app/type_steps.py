@@ -10,6 +10,7 @@ from .fields import extract_fields, laya_signals
 from .hermes_client import HermesError
 from .laya_client import LayaError
 from .vision.analyze import Evidence
+from .vision.image_io import upright_jpeg
 from .vision_judge import JudgeError
 
 log = logging.getLogger(__name__)
@@ -113,7 +114,7 @@ def read_key(engines: Engines, data: bytes, evidence: Evidence, meta: dict[str, 
     settings, remaining = engines.settings, engines.seconds_left(started)
     if remaining < MIN_REVIEW_SECONDS:
         return None
-    outcome, key = key_reading.read(engines.judge, engines.judge_capacity, data,
+    outcome, key = key_reading.read(engines.judge, engines.judge_capacity, upright_jpeg(data, evidence.rotation),
                                     min(remaining, settings.judge_read_timeout), settings.whitelist_cnpj, evidence.text)
     meta["leitura_juiz"] = outcome
     return extract_fields(replace(evidence, access_key=key), settings.whitelist_cnpj) if key else None
