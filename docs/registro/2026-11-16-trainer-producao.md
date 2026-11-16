@@ -50,7 +50,7 @@ Com o trainer rodando use `docker exec laya-trainer python -m trainer.app.contro
 - [ ] Caixa de entrada: pasta, ACL, volume `/inbox` no n8n e nó de gravação (guia de 09/11, Fase 4).
 
 **Trainer:**
-- [ ] `docker network ls | grep laya_default`.
+- [x] Rede: o trainer não depende mais de `laya_default`; usa a rede própria da stack (só fala com Kaggle e SMTP).
 - [ ] Variáveis do stack: `TRAINER_ID_SECRET` (≥32 caracteres), `KAGGLE_USERNAME`, `REPORT_TO`, `TRAINER_KINDS=visao`; token e SMTP já vêm do `.env` (`SMTP_USERNAME` também é aceito). `HERMES_URL` opcional. Como o compose fica em `trainer/`, suba com `docker compose --env-file ../.env up -d`.
 - [ ] Deploy e `docker ps`: `(healthy)`.
 - [ ] Autenticação: `docker exec laya-trainer python -c "from kaggle.api.kaggle_api_extended import KaggleApi as K; a=K(); a.authenticate(); print('ok')"`.
