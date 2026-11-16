@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 
 MAX_SIDE = 2400
+JPEG_QUALITY = 92
 MIN_SIDE = 64  # below this no field is readable; also keeps half-scale resizes non-empty
 ROTATIONS = {
     90: cv2.ROTATE_90_CLOCKWISE,
@@ -37,3 +38,11 @@ def to_gray(image: np.ndarray) -> np.ndarray:
 
 def rotate(image: np.ndarray, degrees: int) -> np.ndarray:
     return cv2.rotate(image, ROTATIONS[degrees]) if degrees in ROTATIONS else image
+
+
+def upright_jpeg(data: bytes, rotation: int) -> bytes:
+    """The photo turned by the rotation the OCR found, so a vision model reads it the right way up."""
+    if rotation not in ROTATIONS:
+        return data
+    encoded, buffer = cv2.imencode(".jpg", rotate(decode(data), rotation), [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+    return buffer.tobytes() if encoded else data

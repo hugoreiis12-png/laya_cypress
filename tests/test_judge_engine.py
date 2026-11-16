@@ -1,6 +1,8 @@
 import json
 from dataclasses import replace
 
+import cv2
+import numpy as np
 import pytest
 
 from service.app import config
@@ -22,7 +24,7 @@ class FakeDetector:
         self.released, self.fail, self.calls = released, fail, 0
 
     def observe(self, data, rotation):
-        self.calls += 1
+        self.calls, self.seen = self.calls + 1, data
         return {"erro": "ConnectError"} if self.fail else {"score_canhoto": 0.1, "liberaria": self.released}
 
 
@@ -31,7 +33,7 @@ class FakeJudge:
         self.opinion, self.fail, self.calls = opinion, fail, 0
 
     def assess_signature(self, data, timeout):
-        self.calls += 1
+        self.calls, self.seen = self.calls + 1, data
         if self.fail:
             raise JudgeError("fora do ar")
         return self.opinion
@@ -48,11 +50,11 @@ class FakeCapacity:
         pass
 
 
-def run(judge=None, detector=None, capacity=None, key=None):
-    evidence = Evidence(DANFE_TEXT, key or make_key(), SIGNED_INK, 0)
+def run(judge=None, detector=None, capacity=None, key=None, photo=b"x", rotation=0):
+    evidence = Evidence(DANFE_TEXT, key or make_key(), SIGNED_INK, rotation)
     engine = Pipeline(ENGINE, lambda data: evidence, FakeLaya(), shadow=detector or FakeDetector(),
                       judge=judge or FakeJudge(), judge_capacity=capacity)
-    envelope = engine.run(b"x", {})
+    envelope = engine.run(photo, {})
     return json.loads(envelope["output"]), envelope["_meta"]
 
 
@@ -89,6 +91,14 @@ def test_detector_failure_never_blocks_the_release():
 def test_audit_problem_still_goes_to_the_reserve():
     _, meta = run(key=make_key(cnpj="22089653000393"))
     assert meta["estado_assinatura"] == SIGNED and meta["inconclusivo"] is True
+
+
+def test_judge_sees_the_turned_photo_upright_and_the_detector_the_original():
+    photo = cv2.imencode(".jpg", np.zeros((120, 80, 3), np.uint8))[1].tobytes()
+    judge, detector = FakeJudge(), FakeDetector()
+    run(judge, detector, photo=photo, rotation=90)
+    assert cv2.imdecode(np.frombuffer(judge.seen, np.uint8), cv2.IMREAD_COLOR).shape[:2] == (80, 120)
+    assert detector.seen is photo
 
 
 def test_configuration_accepts_the_engine():

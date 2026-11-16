@@ -11,6 +11,7 @@ from .laya_client import state_for
 from .signature_decision import UNCERTAIN, SignatureVerdict
 from .signature_model import SignatureModelError
 from .vision.analyze import Evidence
+from .vision.image_io import upright_jpeg
 from .vision_judge import JudgeError, SignatureOpinion
 
 log = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ def _detector_vote(engines: Engines, data: bytes, rotation: int, meta: dict[str,
 def _two_votes(engines: Engines, data: bytes, evidence: Evidence, started: float, meta: dict[str, Any]) -> SignatureVerdict:
     """The judge is asked only when the detector sees a signature, so its load stays on what could be released."""
     detector = _detector_vote(engines, data, evidence.rotation, meta)
-    opinion = _ask_signature(engines, data, started, meta) if detector is True else None
+    opinion = _ask_signature(engines, upright_jpeg(data, evidence.rotation), started, meta) if detector is True else None
     verdict = signature_decision.from_votes(detector, opinion, engines.settings.judge_min_vote_confidence)
     _record_votes(meta, detector, opinion)
     return verdict
@@ -96,14 +97,16 @@ def _current(engines: Engines, data: bytes, evidence: Evidence, fields: dict[str
     if verdict is None:
         verdict = signature_decision.from_ink(evidence.ink, engines.settings)
         meta["assinatura"] = {"motor": "regras", "calibrado": False, "atributos": asdict(evidence.ink)}
-    return _review(engines, data, verdict, started, meta) if verdict.state == UNCERTAIN else verdict
+    if verdict.state != UNCERTAIN:
+        return verdict
+    return _review(engines, upright_jpeg(data, evidence.rotation), verdict, started, meta)
 
 
 def decide(engines: Engines, data: bytes, evidence: Evidence, fields: dict[str, Any], started: float,
            meta: dict[str, Any]) -> SignatureVerdict:
     engine = engines.settings.signature_engine
     if engine == SIGNATURE_ENGINE_JUDGE:
-        return _judge_alone(engines, data, started, meta)
+        return _judge_alone(engines, upright_jpeg(data, evidence.rotation), started, meta)
     if engine == SIGNATURE_ENGINE_TWO_VOTES:
         return _two_votes(engines, data, evidence, started, meta)
     return _current(engines, data, evidence, fields, started, meta)
