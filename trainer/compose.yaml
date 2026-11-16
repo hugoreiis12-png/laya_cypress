@@ -37,9 +37,3 @@ services:
       - /tmp:size=256m
     security_opt:
       - no-new-privileges:true
-    networks: [laya]
-
-networks:
-  laya:
-    external: true
-    name: laya_default
