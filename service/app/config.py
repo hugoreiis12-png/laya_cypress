@@ -96,6 +96,7 @@ class Settings:
     decision_log_path: str = ""  # empty: decisions are not persisted
     decision_digest_key: str = ""  # empty: the log does not compare what the engines read
     trainer_inbox_dir: str = ""  # empty: photos are not left for the trainer
+    metrics_api_key: str = ""  # empty: GET /metrics answers 404
     laya_vision_registry: str = ""  # empty: Laya's own signature classifier is off
     laya_vision_takeover: bool = False  # off: the classifier is only recorded, even when its version is ready
     laya_vision_min_confidence: float = DEFAULT_LAYA_VISION_MIN_CONFIDENCE
@@ -177,6 +178,7 @@ def load(env: Mapping[str, str] | None = None) -> Settings:
         decision_log_path=env.get("DECISION_LOG_PATH", ""),
         decision_digest_key=env.get("DECISION_DIGEST_KEY", ""),
         trainer_inbox_dir=env.get("TRAINER_INBOX_DIR", ""),
+        metrics_api_key=env.get("METRICS_API_KEY", ""),
         laya_vision_registry=env.get("LAYA_VISION_REGISTRY", ""),
         laya_vision_takeover=env.get("LAYA_VISION_TAKEOVER", "") == ENABLED,
         laya_vision_min_confidence=float(env.get("LAYA_VISION_MIN_CONFIDENCE", DEFAULT_LAYA_VISION_MIN_CONFIDENCE)),

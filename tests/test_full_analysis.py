@@ -102,6 +102,9 @@ class RecordingFull:
     def submit(self, record_id, data, rotation):
         self.calls.append((record_id, rotation))
 
+    def pending(self):
+        return len(self.calls)
+
 
 def test_the_endpoint_hands_the_photo_over_after_answering():
     settings = config.load(BASE_ENV)

@@ -5,9 +5,11 @@ import hmac
 import logging
 import threading
 import time
+from collections.abc import Callable
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
 from . import config
@@ -17,6 +19,7 @@ from .hermes_client import HermesClient
 from .judge_capacity import JudgeCapacity
 from .laya_client import LayaClient
 from .laya_vision import LayaVision
+from .observability import Metrics
 from .pipeline import Pipeline
 from .signature_model import SignatureModelClient
 from .signature_shadow import ShadowDetector
@@ -73,10 +76,10 @@ def _pipeline(settings: config.Settings) -> Pipeline:
                     judge_capacity=capacity, auditor=auditor, laya_vision=laya_vision)
 
 
-def _full_analysis(settings: config.Settings, decisions: DecisionLog) -> FullAnalysis | None:
+def _full_analysis(settings: config.Settings, write: Callable[[dict[str, Any]], None]) -> FullAnalysis | None:
     if not (settings.full_analysis and settings.judge_url and settings.judge_model):
         return None
-    full = FullAnalysis(settings, VisionJudge(settings), JudgeCapacity(settings).vllm_idle, decisions.write)
+    full = FullAnalysis(settings, VisionJudge(settings), JudgeCapacity(settings).vllm_idle, write)
     full.start()
     return full
 
@@ -86,8 +89,15 @@ def create_app(settings: config.Settings | None = None, pipeline: Pipeline | Non
     settings = settings or config.load()
     pipeline = pipeline or _pipeline(settings)
     workers = threading.BoundedSemaphore(settings.max_concurrency)
-    decisions = DecisionLog(settings.decision_log_path)
-    full = full or _full_analysis(settings, decisions)
+    decisions, metrics = DecisionLog(settings.decision_log_path), Metrics()
+
+    def record(entry: dict[str, Any]) -> None:
+        decisions.write(entry)
+        metrics.observe(entry)
+
+    full = full or _full_analysis(settings, record)
+    if full is not None:
+        metrics.track_queue(full.pending)
     app = FastAPI(title="Comprover · Extração de Documentos", docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.get("/healthz")
@@ -100,14 +110,16 @@ def create_app(settings: config.Settings | None = None, pipeline: Pipeline | Non
         _authorize(authorization, settings.api_key)
         data = _decode(req.imagem_base64)
         if not workers.acquire(timeout=settings.queue_timeout):
-            decisions.write({"evento": "fila_cheia", "id": (req.contexto.id if req.contexto else None)})
+            record({"evento": "fila_cheia", "id": (req.contexto.id if req.contexto else None)})
             raise HTTPException(status_code=503, detail="serviço ocupado; tente novamente")
         try:
             result = pipeline.run(data, req.contexto.model_dump() if req.contexto else {}, arrived)
         finally:
             workers.release()
-        decisions.write(decision_record(result, settings.decision_digest_key))
-        drop(settings.trainer_inbox_dir, req.contexto.id if req.contexto else None, data)
+        record(decision_record(result, settings.decision_digest_key))
+        delivered = drop(settings.trainer_inbox_dir, req.contexto.id if req.contexto else None, data)
+        if settings.trainer_inbox_dir:
+            metrics.observe_inbox(delivered)
         if full is not None:
             full.submit(req.contexto.id if req.contexto else None, data, result["_meta"].get("rotacao") or 0)
         return result
@@ -116,7 +128,15 @@ def create_app(settings: config.Settings | None = None, pipeline: Pipeline | Non
     def reference(ref: Reference, authorization: str | None = Header(default=None)) -> dict[str, bool]:
         """Another engine's answer for the same photo (Gemini during the shadow), joined later by id."""
         _authorize(authorization, settings.api_key)
-        decisions.write(reference_record(ref.id, ref.origem, ref.output, settings.decision_digest_key))
+        record(reference_record(ref.id, ref.origem, ref.output, settings.decision_digest_key))
         return {"registrado": decisions.enabled}
+
+    @app.get("/metrics")
+    def metrics_page(authorization: str | None = Header(default=None)) -> Response:
+        """Off without METRICS_API_KEY, and never behind the API key: a scraper must not be able to call the API."""
+        if not settings.metrics_api_key:
+            raise HTTPException(status_code=404, detail="métricas desligadas")
+        _authorize(authorization, settings.metrics_api_key)
+        return Response(generate_latest(metrics.registry), media_type=CONTENT_TYPE_LATEST)
 
     return app

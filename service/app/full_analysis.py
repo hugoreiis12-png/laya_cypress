@@ -71,6 +71,9 @@ class FullAnalysis:
         except queue.Full:
             self._write({"evento": "analise_completa_descartada", "id": record_id, "motivo": "fila_cheia"})
 
+    def pending(self) -> int:
+        return self._jobs.qsize()
+
     def start(self) -> threading.Thread:
         worker = threading.Thread(target=self._loop, name="analise-completa", daemon=True)
         worker.start()
