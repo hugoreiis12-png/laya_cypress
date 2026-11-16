@@ -25,8 +25,21 @@ O vLLM passa a ler a foto inteira com o mesmo contrato do Gemini (tipo, assinatu
 - O registro guarda só o tipo, `possui_assinatura`, `confianca_assinatura` e a latência. Os campos lidos entram como resumo com chave (`DECISION_DIGEST_KEY`), como no Gemini. Imagem, texto e valores nunca entram.
 - Se a fila em memória se perder num reinício do container, nenhum atendimento é afetado.
 
-## Regra de assinatura: divergência a decidir
-O prompt do Gemini conta **"carimbo preenchido"** como assinatura. O juiz e a análise completa **não contam carimbo sozinho**. Enquanto as duas regras forem diferentes, o consenso descarta justamente os canhotos só com carimbo. Decida qual é a regra do negócio e alinhe os dois prompts.
+## Regra de assinatura (decidida em 16/11)
+- Assinatura sozinha conta.
+- Carimbo com assinatura conta.
+- **Carimbo sozinho não conta.**
+
+O juiz e a análise completa já seguem essa regra. O prompt do Gemini no n8n ainda conta "carimbo preenchido" e precisa ser alinhado: no `AI Agent1` (e no `gemini_sombra`), troque o bloco "Considere assinatura válida" pelo texto abaixo.
+```
+Considere assinatura válida somente traço feito à mão pelo recebedor:
+• assinatura manuscrita
+• rubrica
+• nome escrito à mão
+• carimbo acompanhado de assinatura, rubrica ou nome à mão
+
+Carimbo sozinho, sem nenhum traço à mão, NÃO é assinatura: possui_assinatura = false.
+```
 
 ## Ativar (VM)
 1. No `compose.yaml` da raiz, no `environment` do serviço:
