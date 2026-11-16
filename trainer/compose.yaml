@@ -5,12 +5,12 @@ services:
       dockerfile: trainer/Dockerfile
     image: laya-trainer:local
     container_name: laya-trainer
-    restart: unless-stopped
+    restart: on-failure  # a failed job ends the process with code 0 and must stay stopped until resumed
     environment:
       HOME: /tmp
       TRAINER_ID_SECRET: ${TRAINER_ID_SECRET:?defina TRAINER_ID_SECRET no stack}
-      KAGGLE_USERNAME: ${KAGGLE_USERNAME:?defina KAGGLE_USERNAME no stack}
-      KAGGLE_API_TOKEN: ${KAGGLE_API_TOKEN:?defina KAGGLE_API_TOKEN no stack}
+      KAGGLE_USERNAME: ${KAGGLE_USERNAME:-${KAGGLE_USER:?defina KAGGLE_USERNAME no stack}}  # .env names it KAGGLE_USER
+      KAGGLE_API_TOKEN: ${KAGGLE_API_TOKEN:-${KAGGLE_API_KEY:?defina KAGGLE_API_TOKEN no stack}}  # .env names it KAGGLE_API_KEY
       TRAINER_KINDS: ${TRAINER_KINDS:-visao}
       TRAINER_WINDOW: ${TRAINER_WINDOW:-22:00-06:00}
       TRAINER_PAUSE_SECONDS: ${TRAINER_PAUSE_SECONDS:-240}
@@ -21,7 +21,7 @@ services:
       HERMES_MODEL: ${HERMES_MODEL:-hermes3:8b}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-465}
-      SMTP_USER: ${SMTP_USER:-}
+      SMTP_USER: ${SMTP_USER:-${SMTP_USERNAME:-}}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
       REPORT_TO: ${REPORT_TO:-}

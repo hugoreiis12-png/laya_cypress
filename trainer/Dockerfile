@@ -4,7 +4,8 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-por \
  && rm -rf /var/lib/apt/lists/*
 RUN groupadd --gid 10002 svc && useradd --uid 10002 --gid svc --create-home svc
-WORKDIR /srv
+# code lives in /app: the state volume is mounted at /srv/trainer and would hide anything copied there
+WORKDIR /app
 COPY trainer/requirements.txt trainer/requirements.txt
 RUN pip install --no-cache-dir -r trainer/requirements.txt
 COPY service/__init__.py service/__init__.py
