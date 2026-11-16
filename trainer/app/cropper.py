@@ -2,7 +2,7 @@
 import cv2
 import numpy as np
 
-RECEIVER_TOP_FRACTION = 0.22  # the receiver field sits in the top band of an upright DANFE
+RECEIVER_TOP_FRACTION = 0.5  # the same half the judge reads; 0.22 cut the signature off photos with a margin
 MIN_STRIP_PIXELS = 32
 JPEG_QUALITY = 90
 ROTATIONS = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180, 270: cv2.ROTATE_90_COUNTERCLOCKWISE}

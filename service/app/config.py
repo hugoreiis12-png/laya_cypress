@@ -94,6 +94,7 @@ class Settings:
     hermes_audit: bool = False
     decision_log_path: str = ""  # empty: decisions are not persisted
     decision_digest_key: str = ""  # empty: the log does not compare what the engines read
+    trainer_inbox_dir: str = ""  # empty: photos are not left for the trainer
 
 
 def _whitelist(raw: str) -> tuple[str, ...]:
@@ -171,4 +172,5 @@ def load(env: Mapping[str, str] | None = None) -> Settings:
         hermes_audit=env.get("HERMES_AUDIT", "") == ENABLED,
         decision_log_path=env.get("DECISION_LOG_PATH", ""),
         decision_digest_key=env.get("DECISION_DIGEST_KEY", ""),
+        trainer_inbox_dir=env.get("TRAINER_INBOX_DIR", ""),
     )

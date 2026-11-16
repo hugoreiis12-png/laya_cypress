@@ -19,6 +19,7 @@ from .laya_client import LayaClient
 from .pipeline import Pipeline
 from .signature_model import SignatureModelClient
 from .signature_shadow import ShadowDetector
+from .trainer_inbox import drop
 from .vision.analyze import analyze
 from .vision_judge import VisionJudge
 
@@ -104,6 +105,7 @@ def create_app(settings: config.Settings | None = None, pipeline: Pipeline | Non
         finally:
             workers.release()
         decisions.write(decision_record(result, settings.decision_digest_key))
+        drop(settings.trainer_inbox_dir, req.contexto.id if req.contexto else None, data)
         if full is not None:
             full.submit(req.contexto.id if req.contexto else None, data, result["_meta"].get("rotacao") or 0)
         return result

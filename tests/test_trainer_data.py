@@ -93,7 +93,7 @@ def photo(width=200, height=400):
 
 def test_receiver_strip_is_the_top_band_of_the_upright_page():
     strip = cv2.imdecode(np.frombuffer(cropper.receiver_strip(photo(), 0), np.uint8), cv2.IMREAD_COLOR)
-    assert strip.shape[1] == 200 and 80 <= strip.shape[0] <= 92
+    assert strip.shape[1] == 200 and strip.shape[0] == 200
 
 
 def test_rotation_is_applied_before_cutting():

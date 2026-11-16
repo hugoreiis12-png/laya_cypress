@@ -13,6 +13,11 @@ Complementa `2026-11-06-spec-laya-trainer.md` (§7, §9 e fatia 8) e os guias de
 
 `TRAINER_MAX_RETRIES` deixou de existir. Um `estado.json` antigo continua legível.
 
+## Recorte da tira (decidido em 16/11)
+A tira enviada ao Kaggle passou de 22% para a **metade de cima** da foto em pé, o mesmo recorte da segunda olhada do juiz. Com 22%, fotos com margem acima do papel perdiam a assinatura, e a tira entrava no treino com o rótulo "assinado" e sem a assinatura.
+- A metade inclui o bloco do destinatário (razão social, CNPJ e endereço). Em geral é uma empresa; quando for pessoa física, entram nome e CPF.
+- Registrado no `license.md` (seção "Treino contínuo e transferência").
+
 ## Backup e retomada
 - **Onde fica:** `/opt/laya-trainer/data/backups/<tipo>-<ts>/`, com `falha.json` (motivo, dataset, kernel, amostras) e a pasta do job (`pacote/`, `kernel/`, `saida/` se houver).
 - O dataset no Kaggle é apagado mesmo na falha (§5.4). O pacote anonimizado fica só no volume.
@@ -47,7 +52,7 @@ Com o trainer rodando use `docker exec laya-trainer python -m trainer.app.contro
 **Dados chegando:**
 - [ ] `DECISION_LOG_PATH=/srv/dados/decisoes.jsonl` e `SIGNATURE_ENGINE=juiz` no serviço.
 - [ ] Referências do Gemini gravadas. Na VM: `grep -c '"evento": "referencia"' /opt/laya-cypress/dados/decisoes.jsonl` deve crescer. O `sombra_referencia_gemini` do fluxo versionado (04/11) manda `{tipo_documento, possui_assinatura, contexto}` e a API exige `{"id", "origem", "output"}`; se der 0, o corpo certo é `{{ { id: $('id_foto').item.json.id, origem: 'gemini', output: $json.output } }}`.
-- [ ] Caixa de entrada: pasta, ACL, volume `/inbox` no n8n e nó de gravação (guia de 09/11, Fase 4).
+- [ ] Caixa de entrada: o n8n de produção roda numa VPS (Hostinger) e não alcança o disco desta VM, então **o serviço `laya-cypress` deixa a foto na caixa** (`TRAINER_INBOX_DIR=/srv/inbox`, volume `/opt/laya-trainer/data/inbox:/srv/inbox`). O nó `gravar_foto_laya_trainer` do n8n sai. O serviço e o trainer rodam com o mesmo uid (10002).
 
 **Trainer:**
 - [x] Rede: o trainer não depende mais de `laya_default`; usa a `bridge` padrão do Docker, porque a VM não tem sub-rede livre para uma rede da stack (só fala com Kaggle e SMTP).

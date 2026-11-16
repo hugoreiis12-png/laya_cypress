@@ -41,7 +41,10 @@ def strip_cutter(strips: Path, secret: str) -> Cutter:
 
 
 def _photos(inbox: Path) -> list[Path]:
-    return [path for path in sorted(inbox.iterdir()) if path.is_file()] if inbox.is_dir() else []
+    """Hidden files are photos still being written by the service; they are read on a later pass."""
+    if not inbox.is_dir():
+        return []
+    return [path for path in sorted(inbox.iterdir()) if path.is_file() and not path.name.startswith(".")]
 
 
 def _process(photo: Path, rotation: int, cutters: Sequence[Cutter]) -> bool:
