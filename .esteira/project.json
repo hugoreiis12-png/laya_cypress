@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "tool": "@esteira/cli",
+  "adaptersVersion": 1,
+  "generatedAt": "2026-11-16T17:57:13.102Z",
+  "profile": {
+    "schemaVersion": 1,
+    "root": "C:\\Users\\JFC\\Desktop\\LAYA_CYPRESS",
+    "generatedAt": "2026-11-16T17:57:13.097Z",
+    "files": {
+      "total": 9751,
+      "signatures": {
+        ".jpg": 5807,
+        ".json": 2667,
+        ".py": 771,
+        ".jsonl": 104,
+        ".jpeg": 85,
+        ".md": 71,
+        "__no_ext__": 55,
+        ".log": 38,
+        ".yaml": 32,
+        ".typed": 16,
+        ".txt": 13,
+        ".pyi": 12,
+        ".exe": 12,
+        ".gz": 12,
+        ".lock": 11,
+        ".safetensors": 10,
+        ".html": 8,
+        "Dockerfile": 4,
+        "requirements.txt": 4,
+        ".zip": 4,
+        "setup.py": 3,
+        ".whl": 3,
+        ".ipynb": 3,
+        ".gitignore": 2,
+        ".bat": 2,
+        "compose.yaml": 2,
+        ".pdf": 2,
+        ".env": 1,
+        ".example": 1,
+        ".mjs": 1,
+        ".pem": 1,
+        ".pyd": 1,
+        ".cfg": 1,
+        ".ps1": 1,
+        ".csv": 1,
+        ".tgz": 1,
+        ".toml": 1,
+        "pyproject.toml": 1,
+        ".yml": 1,
+        "docker-compose.yml": 1
+      }
+    },
+    "languages": [
+      {
+        "id": "python",
+        "confidence": 0.9,
+        "runtime": {
+          "python": ">=3.11"
+        },
+        "packageManager": "pip",
+        "frameworks": [
+          "fastapi",
+          "pydantic",
+          "pytest",
+          "uvicorn"
+        ],
+        "evidence": [
+          "pyproject.toml",
+          "requirements.txt"
+        ],
+        "commands": {
+          "test": "python -m pytest",
+          "lint": null,
+          "typecheck": null,
+          "build": null
+        },
+        "installCommand": null
+      }
+    ],
+    "monorepo": {
+      "isMonorepo": false,
+      "tool": null,
+      "layout": []
+    },
+    "infra": {
+      "containers": true,
+      "kubernetes": false,
+      "helm": false,
+      "terraform": false,
+      "ansible": false,
+      "argocd": false,
+      "ciProviders": [],
+      "hasPipelines": false
+    },
+    "commands": {
+      "lint": null,
+      "typecheck": null,
+      "test": "python -m pytest",
+      "build": null
+    },
+    "gaps": [
+      {
+        "id": "no-lint-command",
+        "message": "Nenhum comando de lint detectado — o gate usa só as checagens embutidas."
+      }
+    ],
+    "warnings": [],
+    "subprojects": []
+  },
+  "gate": {
+    "mode": "block",
+    "blockAt": "medium",
+    "maxFileBytes": 5242880,
+    "playground": {
+      "enabled": true,
+      "baseline": true,
+      "timeoutMs": 120000
+    },
+    "push": {
+      "requireAttestation": true
+    },
+    "gates": []
+  },
+  "audit": {
+    "sources": [
+      "local",
+      "github"
+    ],
+    "schedule": "daily",
+    "failOn": "high"
+  },
+  "llm": {
+    "enabled": true,
+    "endpoint": "http://192.168.0.140:11434",
+    "model": "hermes3:8b",
+    "timeoutMs": 60000
+  }
+}

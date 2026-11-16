@@ -90,15 +90,24 @@ def data_source(tmp_path, cases, kinds=(KIND_VISION, KIND_LAYA)):
 
 
 def test_only_photos_where_vllm_and_gemini_agree_count_as_new_signature_samples(tmp_path):
-    source, _ = data_source(tmp_path, [("P1", True, True), ("P2", False, False), ("P3", True, False)], (KIND_VISION,))
-    assert source.new_samples({}) == {KIND_VISION: 2}
-    assert source.new_samples({KIND_VISION: 2}) == {KIND_VISION: 0}
+    cases = [("P1", True, True), ("P2", False, False), ("P3", True, False), ("P4", True, True), ("P5", False, False)]
+    source, _ = data_source(tmp_path, cases, (KIND_VISION,))
+    assert source.new_samples({}) == {KIND_VISION: 4}
+    assert source.new_samples({KIND_VISION: 4}) == {KIND_VISION: 0}
 
 
 def test_type_samples_need_rules_and_gemini_to_agree(tmp_path):
-    cases = [("T1", True, True, "pedido", "pedido"), ("T2", True, True, "canhoto", "pedido")]
+    cases = [("T1", True, True, "pedido", "pedido"), ("T2", True, True, "canhoto", "pedido"),
+             ("T3", True, True, "pedido", "pedido"), ("T4", True, True, "canhoto", "canhoto"),
+             ("T5", True, True, "canhoto", "canhoto")]
     source, _ = data_source(tmp_path, cases)
-    assert source.new_samples({})[KIND_LAYA] == 1
+    assert source.new_samples({})[KIND_LAYA] == 4
+
+
+def test_a_single_class_waits_for_data_instead_of_starting_a_job(tmp_path):
+    cases = [(f"A{n}", True, True) for n in range(4)] + [("N1", False, False)]
+    source, _ = data_source(tmp_path, cases, (KIND_VISION,))
+    assert source.new_samples({}) == {KIND_VISION: 0}
 
 
 def test_the_vision_package_holds_pseudonyms_labels_and_both_classes(tmp_path):

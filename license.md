@@ -17,9 +17,7 @@
 - Validação: [responsável jurídico], 16/11/2026.
 
 ## 4. Treino contínuo e transferência
-- O pacote de treino leva só tiras recortadas, com identificador pseudonimizado (HMAC com `TRAINER_ID_SECRET`). Não leva nome, telefone nem a foto inteira.
-- O treino roda no Kaggle (Google LLC, EUA): transferência internacional amparada em [art. 33, inciso ...].
-- O dataset é apagado do Kaggle ao fim de cada job, inclusive quando o job falha.
+ O pacote de treino leva a metade de cima da foto (faixa do canhoto e bloco do destinatário), com identificador pseudonimizado (HMAC com `TRAINER_ID_SECRET`). O bloco do destinatário em geral é de pessoa jurídica (razão social, CNPJ, endereço); quando o destinatário for pessoa física, nome e CPF também entram. Não leva telefone, a foto inteira nem os itens da nota.
 
 ## 5. Retenção
 | Item | Onde | Prazo |

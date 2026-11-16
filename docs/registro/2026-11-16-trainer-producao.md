@@ -7,6 +7,7 @@ Complementa `2026-11-06-spec-laya-trainer.md` (§7, §9 e fatia 8) e os guias de
 |---|---|---|
 | Falha de job | Repetir com recuo até `TRAINER_MAX_RETRIES`, depois seguir para o outro tipo | **Para tudo.** O job vai para backup no volume, o estado fica `parado_por_falha`, sai um alerta por e-mail e o processo termina (código 0). Nada roda até a retomada manual |
 | Cota do Kaggle | Agenda a próxima janela | Igual: cota esgotada é agendamento, não falha |
+| Dados de uma classe só | O job abria e falhava (`poucas classes…`), parando o trainer | O tipo não conta amostras novas enquanto não houver 2 classes com ≥2 exemplos cada; o trainer espera, sem job |
 | Relatório sem Hermes | Não saía e-mail | Sai com o texto gerado por código (`fallback_text`) |
 | Falha de SMTP no relatório | E-mail perdido | Tentado de novo a cada 1 h até sair; uma vez por versão |
 | Rollback | Só existia no código | Comando `control rollback <tipo>` |

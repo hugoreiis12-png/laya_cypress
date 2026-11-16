@@ -52,14 +52,17 @@ class InboxData:
         return {KIND_VISION: vision, KIND_LAYA: laya}
 
     def new_samples(self, trained: Mapping[str, int]) -> Mapping[str, int]:
+        """A kind without two trainable classes reports nothing new: it waits for data instead of failing a job."""
         ready = self._ready()
-        return {kind: max(0, len(ready[kind]) - trained.get(kind, 0)) for kind in self._settings.kinds}
+        return {kind: max(0, len(ready[kind]) - trained.get(kind, 0)) if _has_classes(ready[kind]) else 0
+                for kind in self._settings.kinds}
 
     def prepare(self, kind: str, directory: Path) -> int:
         if kind not in self._settings.kinds:
             raise DataError(f"o tipo de treino {kind} não está habilitado")
         rows = self._ready()[kind]
-        _require_classes(rows)
+        if not _has_classes(rows):
+            raise DataError(f"poucas classes com exemplos suficientes para treinar: {_class_counts(rows)}")
         name = directory.parent.name
         if kind == KIND_VISION:
             strips = [StripItem(item, label, (self._strips / f"{item}{inbox.STRIP_SUFFIX}").read_bytes()) for item, label in rows]
@@ -70,10 +73,13 @@ class InboxData:
         return len(rows)
 
 
-def _require_classes(rows: list[tuple[str, str]]) -> None:
+def _class_counts(rows: list[tuple[str, str]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for _, label in rows:
         counts[label] = counts.get(label, 0) + 1
-    enough = [label for label, count in counts.items() if count >= MIN_PER_CLASS]
-    if len(enough) < MIN_CLASSES:
-        raise DataError(f"poucas classes com exemplos suficientes para treinar: {counts}")
+    return counts
+
+
+def _has_classes(rows: list[tuple[str, str]]) -> bool:
+    enough = [label for label, count in _class_counts(rows).items() if count >= MIN_PER_CLASS]
+    return len(enough) >= MIN_CLASSES

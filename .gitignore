@@ -41,3 +41,8 @@ gold/manifest.jsonl
 .its-fine/history/
 .its-fine/policy.json
 
+.esteira/runs/
+.esteira/tmp/
+.esteira/hooks/
+.esteira/heals/
+.esteira/backups/
