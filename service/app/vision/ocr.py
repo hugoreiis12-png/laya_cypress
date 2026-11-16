@@ -1,5 +1,8 @@
 """Tesseract OCR with orientation detection. One image_to_data call yields text and word boxes."""
+import statistics
+import time
 from collections import defaultdict
+from collections.abc import Callable
 from typing import Any
 
 import cv2
@@ -17,6 +20,11 @@ MIN_WORD_LETTERS = 3
 MIN_CONFIDENT_WORDS = 10  # upside-down text still yields many characters, but almost no confident words
 UPSCALE = 2.0  # small print (a WhatsApp-sized full page) is below what Tesseract reads; one enlarged retry
 BOX_KEYS = ("left", "top", "width", "height")
+SMALL_PRINT_HEIGHT = 12  # median word box in px; a WhatsApp-sized full DANFE measures 9 and reads twice better zoomed
+STRONG_CONFIDENT_WORDS = 2 * MIN_CONFIDENT_WORDS  # a zoomed read this good ends the search; a sideways one barely passes
+ZOOM_BUDGET_SECONDS = 5.0  # the zoomed search must leave the judge room inside the 25 s review deadline
+ZOOM_TURNS = (0, 90, 270, 180)  # from the best unzoomed orientation: itself, its perpendiculars, upside down last
+FULL_TURN = 360
 
 
 def _words(data: dict[str, list[Any]]) -> list[tuple[tuple[int, int, int], Word]]:
@@ -81,17 +89,42 @@ def _readable(read: tuple[OcrResult, np.ndarray]) -> bool:
     return _characters(read) >= MIN_READABLE_CHARS and _confident_words(read) >= MIN_CONFIDENT_WORDS
 
 
+def _small_print(read: tuple[OcrResult, np.ndarray]) -> bool:
+    heights = [word.box.height for word in read[0].words
+               if len(word.text) >= MIN_WORD_LETTERS and word.confidence >= CONFIDENT_WORD and word.box.height > 0]
+    return bool(heights) and statistics.median(heights) < SMALL_PRINT_HEIGHT
+
+
+def _better(current: tuple[OcrResult, np.ndarray], candidate: tuple[OcrResult, np.ndarray]) -> tuple[OcrResult, np.ndarray]:
+    return candidate if _quality(candidate) > _quality(current) else current
+
+
+def _sharpened(image: np.ndarray, read: tuple[OcrResult, np.ndarray]) -> tuple[OcrResult, np.ndarray]:
+    """A readable full page in small print still loses its headers and numbers; one zoom keeps the better read."""
+    return _better(read, _read(image, read[0].rotation, UPSCALE)) if _small_print(read) else read
+
+
+def _zoomed_search(image: np.ndarray, best: tuple[OcrResult, np.ndarray],
+                   clock: Callable[[], float] = time.monotonic) -> tuple[OcrResult, np.ndarray]:
+    """A narrow strip may only read once enlarged, and not in the orientation that won before the zoom."""
+    deadline, origin = clock() + ZOOM_BUDGET_SECONDS, best[0].rotation
+    for turn in ZOOM_TURNS:
+        best = _better(best, _read(image, (origin + turn) % FULL_TURN, UPSCALE))
+        if _confident_words(best) >= STRONG_CONFIDENT_WORDS or clock() >= deadline:
+            break
+    return best
+
+
 def run(image: np.ndarray) -> tuple[OcrResult, np.ndarray]:
     """Returns the OCR result and the upright image its word boxes refer to.
 
-    A read that is short or mostly low-confidence (wrong orientation) tries every rotation, then a zoom.
+    A read that is short or mostly low-confidence (wrong orientation) tries every rotation, then every zoomed one.
     """
     first = _read(image, detect_rotation(to_gray(image)))
     if _readable(first):
-        return first
+        return _sharpened(image, first)
     others = [_read(image, rotation) for rotation in CANDIDATE_ROTATIONS if rotation != first[0].rotation]
     best = max([first, *others], key=_quality)  # a tie keeps the orientation OSD chose
     if _readable(best):
-        return best
-    zoomed = _read(image, best[0].rotation, UPSCALE)
-    return zoomed if _quality(zoomed) > _quality(best) else best
+        return _sharpened(image, best)
+    return _zoomed_search(image, best)

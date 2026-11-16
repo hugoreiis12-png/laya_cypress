@@ -3,7 +3,7 @@ import pytest
 from service.app import comprovante, items
 from service.app.cnpj_key import (
     access_key_is_valid, cnpj_is_valid, find_access_keys, find_cnpjs, format_cnpj,
-    invoice_number, pick_issuer,
+    invoice_number, invoice_numbers, pick_issuer,
 )
 
 WHITELIST_FORMATTED = [
@@ -115,3 +115,21 @@ def test_invoice_number_printed_as_plain_n_followed_by_the_series():
 
 def test_a_plain_n_without_the_series_is_not_an_invoice_number():
     assert invoice_number("RUA DAS FLORES N. 546\nBAIRRO CENTRO") == ""
+
+
+def test_issuer_survives_ocr_spaces_and_commas_inside_the_cnpj():
+    assert pick_issuer("CNPJ/CPF\n46.126.673/000 193", ("46126673000193",)) == "46.126.673/0001-93"
+    assert pick_issuer("CNPJ 33,38 1,286/0077-50", ("33381286007750",)) == "33.381.286/0077-50"
+
+
+def test_issuer_is_the_first_whitelisted_cnpj_even_when_the_ocr_split_it():
+    text = "EMITENTE 46.126.673/000 193\nTRANSPORTADOR 15.268.427/0001-42"
+    assert pick_issuer(text, ("15268427000142", "46126673000193")) == "46.126.673/0001-93"
+
+
+def test_invoice_number_reads_a_comma_as_the_thousands_separator():
+    assert invoice_number("NF-e\nNº 23,110\nSÉRIE 1") == "23110"
+
+
+def test_invoice_numbers_lists_every_printed_copy_in_order():
+    assert invoice_numbers("Nº 25.110 SÉRIE 1\nRECEBEMOS DE ... Nº 23,110") == ["25110", "23110"]

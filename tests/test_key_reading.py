@@ -88,6 +88,18 @@ def test_a_different_whitelisted_issuer_printed_in_the_text_is_a_conflict():
     assert meta["leitura_juiz"] == key_reading.TEXT_CONFLICT
 
 
+def test_a_misread_copy_of_the_number_is_not_a_conflict_when_another_copy_matches():
+    _, meta, _ = run(FakeJudge(), text="DANFE Nº 000.128.456 SÉRIE 1\nRECEBEMOS DE ... Nº 123,456")
+    assert meta["leitura_juiz"] == key_reading.FOUND
+
+
+def test_another_whitelisted_cnpj_beside_the_issuer_is_not_a_conflict():
+    settings = replace(ENGINE, whitelist_cnpj=("36895856000110", "15268427000142"))
+    text = "Emitente 36.895.856/0001-10 Transportador 15.268.427/0001-42"
+    _, meta, _ = run(FakeJudge(), text=text, settings=settings)
+    assert meta["leitura_juiz"] == key_reading.FOUND
+
+
 def test_silence_in_the_text_is_not_a_conflict():
     _, meta, _ = run(FakeJudge(), text="texto sem número nem CNPJ")
     assert meta["leitura_juiz"] == key_reading.FOUND

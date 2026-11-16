@@ -63,7 +63,7 @@ def test_readable_osd_rotation_is_kept_without_extra_reads(tesseract):
 def test_unreadable_photo_keeps_the_osd_rotation(tesseract):
     fake = tesseract(osd_rotation=180)
     result, _ = ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
-    assert result.rotation == 180 and result.text == "" and fake.reads == len(ocr.CANDIDATE_ROTATIONS) + 1
+    assert result.rotation == 180 and result.text == "" and fake.reads == 2 * len(ocr.CANDIDATE_ROTATIONS)
 
 
 class SmallPrintTesseract(FakeTesseract):
@@ -115,3 +115,78 @@ def test_a_confident_read_of_few_words_still_tries_the_other_orientations(tesser
     fake = tesseract(osd_rotation=180)
     ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
     assert fake.reads > 1
+
+
+class ZoomedStripTesseract(FakeTesseract):
+    """A strip printed sideways: unenlarged, 0 degrees gives the most noise; only 270 enlarged reads."""
+
+    def image_to_data(self, gray, lang=None, output_type=None):
+        self.reads += 1
+        enlarged = max(gray.shape) >= ocr.UPSCALE * WIDTH
+        count = WORDS_WHEN_READABLE if enlarged and gray[0, 0] == 255 else 5
+        confidence = 90.0 if count == WORDS_WHEN_READABLE else (80.0 if gray.shape[1] == WIDTH else 10.0)
+        data = {key: [0] * count for key in DATA_KEYS}
+        data["text"], data["conf"] = ["palavra"] * count, [confidence] * count
+        return data
+
+
+def test_a_strip_readable_only_enlarged_is_read_in_its_own_orientation(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pytesseract", ZoomedStripTesseract(osd_rotation=180))
+    result, _ = ocr.run(photo_readable_only_at_270())
+    assert result.rotation == 270 and len(result.words) == WORDS_WHEN_READABLE
+
+
+class PrintSizeTesseract(FakeTesseract):
+    """Always readable; enlarged reads yield more words, and the boxes carry the given print height."""
+
+    def __init__(self, osd_rotation: int, height: int) -> None:
+        super().__init__(osd_rotation)
+        self.height = height
+
+    def image_to_data(self, gray, lang=None, output_type=None):
+        self.reads += 1
+        count = WORDS_WHEN_READABLE * (2 if gray.shape[1] > WIDTH else 1)
+        data = {key: [0] * count for key in DATA_KEYS}
+        data["text"], data["conf"], data["height"] = ["palavra"] * count, [90.0] * count, [self.height] * count
+        return data
+
+
+def test_a_readable_page_in_small_print_keeps_the_better_zoomed_read(monkeypatch):
+    fake = PrintSizeTesseract(osd_rotation=0, height=ocr.SMALL_PRINT_HEIGHT - 3)
+    monkeypatch.setitem(sys.modules, "pytesseract", fake)
+    result, upright = ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
+    assert fake.reads == 2 and len(result.words) == 2 * WORDS_WHEN_READABLE and upright.shape[1] == WIDTH
+
+
+def test_a_readable_page_in_normal_print_is_not_zoomed(monkeypatch):
+    fake = PrintSizeTesseract(osd_rotation=0, height=ocr.SMALL_PRINT_HEIGHT * 2)
+    monkeypatch.setitem(sys.modules, "pytesseract", fake)
+    ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
+    assert fake.reads == 1
+
+
+class StrongZoomTesseract(FakeTesseract):
+    """Unreadable unenlarged; every enlarged orientation reads strongly, so the first one ends the search."""
+
+    def image_to_data(self, gray, lang=None, output_type=None):
+        self.reads += 1
+        count = ocr.STRONG_CONFIDENT_WORDS if gray.shape[1] > WIDTH else 0
+        data = {key: [0] * count for key in DATA_KEYS}
+        data["text"], data["conf"] = ["palavra"] * count, [90.0] * count
+        return data
+
+
+def test_a_strong_zoomed_read_ends_the_search(monkeypatch):
+    fake = StrongZoomTesseract(osd_rotation=0)
+    monkeypatch.setitem(sys.modules, "pytesseract", fake)
+    result, _ = ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
+    assert result.rotation == 0 and fake.reads == len(ocr.CANDIDATE_ROTATIONS) + 1
+
+
+def test_the_zoomed_search_stops_when_its_budget_runs_out(tesseract):
+    fake = tesseract(osd_rotation=0)
+    image = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
+    unread = ocr._read(image, 0)
+    ticks = iter([0.0, ocr.ZOOM_BUDGET_SECONDS])
+    ocr._zoomed_search(image, unread, clock=lambda: next(ticks))
+    assert fake.reads == 2

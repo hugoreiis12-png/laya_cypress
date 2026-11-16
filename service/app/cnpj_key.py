@@ -14,12 +14,12 @@ MIN_REMAINDER = 2
 KEY_WEIGHT_RANGE = range(2, 10)
 
 _KEY_PATTERN = re.compile(r"(?<!\d)(?:\d{4}[ .]?){10}\d{4}(?!\d)")
-_CNPJ_PATTERN = re.compile(r"(?<!\d)\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}(?!\d)")
-_NUMBER_PATTERN = re.compile(
-    r"(?:N[º°o]|NF-?e?|N[úu]mero)\.?\s*:?\s*(\d{1,3}(?:\.\d{3})+|\d{1,9})(?!\d)", re.IGNORECASE
-)
+# OCR splits CNPJs with spaces and commas ("46.126.673/000 193"); the check digit and whitelist filter candidates
+_CNPJ_PATTERN = re.compile(r"(?<!\d)(?=(\d(?:[ .,/-]{0,2}\d){13}))")
+_GROUPED_NUMBER = r"(\d{1,3}(?:[.,]\d{3})+|\d{1,9})"  # OCR often reads the thousands dot as a comma
+_NUMBER_PATTERN = re.compile(rf"(?:N[º°o]|NF-?e?|N[úu]mero)\.?\s*:?\s*{_GROUPED_NUMBER}(?!\d)", re.IGNORECASE)
 # "N. 117.986 SÉRIE 1": some DANFEs print a plain "N." and the series right after it anchors the number
-_SERIES_NUMBER_PATTERN = re.compile(r"(?<![A-Za-z])N\.\s*(\d{1,3}(?:\.\d{3})+|\d{1,9})\s+S[ée]rie(?![a-z])", re.IGNORECASE)
+_SERIES_NUMBER_PATTERN = re.compile(rf"(?<![A-Za-z])N\.\s*{_GROUPED_NUMBER}\s+S[ée]rie(?![a-z])", re.IGNORECASE)
 
 
 def digits(text: object) -> str:
@@ -64,7 +64,7 @@ def find_access_keys(text: str) -> list[str]:
 
 
 def find_cnpjs(text: str) -> list[str]:
-    found = (digits(match.group()) for match in _CNPJ_PATTERN.finditer(strip_access_keys(text)))
+    found = (digits(match.group(1)) for match in _CNPJ_PATTERN.finditer(strip_access_keys(text)))
     return list(dict.fromkeys(cnpj for cnpj in found if cnpj_is_valid(cnpj)))
 
 
@@ -78,6 +78,13 @@ def pick_issuer(text: str, whitelist: tuple[str, ...], key: str = "") -> str:
 def invoice_number(text: str, key: str = "") -> str:
     if key and access_key_is_valid(key):
         return str(int(key[KEY_NUMBER]))
+    numbers = invoice_numbers(text)
+    return numbers[0] if numbers else ""
+
+
+def invoice_numbers(text: str) -> list[str]:
+    """Every labeled invoice number in the text, in order; a DANFE prints its own at least twice."""
     clean = strip_access_keys(text)
-    match = _NUMBER_PATTERN.search(clean) or _SERIES_NUMBER_PATTERN.search(clean)
-    return digits(match.group(1)).lstrip("0") if match else ""
+    matches = [*_NUMBER_PATTERN.finditer(clean), *_SERIES_NUMBER_PATTERN.finditer(clean)]
+    found = (digits(match.group(1)).lstrip("0") for match in sorted(matches, key=lambda match: match.start()))
+    return list(dict.fromkeys(number for number in found if number))

@@ -1,7 +1,7 @@
 """Asks the judge for the access key of a photo the barcode and OCR could not read; only a validated key counts."""
 from typing import Protocol
 
-from .cnpj_key import KEY_CNPJ, access_key_is_valid, invoice_number, pick_issuer
+from .cnpj_key import KEY_CNPJ, access_key_is_valid, find_cnpjs, invoice_number, invoice_numbers
 from .judge_capacity import JudgeCapacity
 from .vision_judge import JudgeError
 
@@ -19,12 +19,12 @@ class KeyReader(Protocol):
 
 
 def _agrees_with_text(key: str, text: str, whitelist: tuple[str, ...]) -> bool:
-    """The check digit passes by chance for about one wrong read in ten; what the OCR read of the same note must match."""
-    printed_number = invoice_number(text)
-    if printed_number and printed_number != invoice_number("", key):
+    """A wrong read passes the check digit about once in ten; it conflicts only if no printed copy matches the key."""
+    printed_numbers = invoice_numbers(text)
+    if printed_numbers and invoice_number("", key) not in printed_numbers:
         return False
-    printed_issuer = pick_issuer(text, whitelist)
-    return not printed_issuer or printed_issuer == pick_issuer("", whitelist, key)
+    printed_issuers = [cnpj for cnpj in find_cnpjs(text) if cnpj in whitelist]
+    return not printed_issuers or key[KEY_CNPJ] in printed_issuers
 
 
 def _validated(read: str, whitelist: tuple[str, ...], text: str) -> tuple[str, str]:
