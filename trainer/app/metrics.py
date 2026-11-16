@@ -26,19 +26,20 @@ class Metrics:
     base_safety: Mapping[str, int] | None
     confidence: float
     per_class: Mapping[str, ClassError]
+    test_count: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         classes = {name: {"base": item.base, "current": item.current} for name, item in self.per_class.items()}
         return {"version": self.version, "base": self.base, "test": self.test, "error": self.error,
                 "base_error": self.base_error, "rules_error": self.rules_error, "safety": dict(self.safety),
                 "base_safety": None if self.base_safety is None else dict(self.base_safety),
-                "confidence": self.confidence, "per_class": classes}
+                "confidence": self.confidence, "per_class": classes, "test_count": self.test_count}
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "Metrics":
         classes = {name: ClassError(item["base"], item["current"]) for name, item in raw["per_class"].items()}
         return cls(raw["version"], raw["base"], raw["test"], raw["error"], raw["base_error"], raw["rules_error"],
-                   raw["safety"], raw["base_safety"], raw["confidence"], classes)
+                   raw["safety"], raw["base_safety"], raw["confidence"], classes, raw.get("test_count"))
 
 
 def _rate(raw: Mapping[str, Any], key: str, required: bool = True) -> float | None:
@@ -57,6 +58,15 @@ def _counts(raw: Mapping[str, Any]) -> dict[str, int]:
     return dict(safety)
 
 
+def _test_count(raw: Mapping[str, Any]) -> int | None:
+    value = raw.get("amostras_teste")
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise MetricsError("amostras_teste inválido")
+    return value
+
+
 def from_kernel(raw: Mapping[str, Any], version: str, base_version: str | None, base: Metrics | None) -> Metrics:
     """The base only counts when it was measured on the same test set; otherwise this version becomes the new baseline."""
     test = str(raw.get("teste") or "")
@@ -70,4 +80,5 @@ def from_kernel(raw: Mapping[str, Any], version: str, base_version: str | None, 
                                   else None, _rate(classes, name)) for name in classes}
     return Metrics(version, base_version if comparable else None, test, _rate(raw, "erro"),
                    comparable.error if comparable else None, _rate(raw, "erro_regras", required=False),
-                   _counts(raw), comparable.safety if comparable else None, _rate(raw, "confianca"), per_class)
+                   _counts(raw), comparable.safety if comparable else None, _rate(raw, "confianca"), per_class,
+                   _test_count(raw))

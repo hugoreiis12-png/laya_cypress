@@ -64,6 +64,6 @@ Com o trainer rodando use `docker exec laya-trainer python -m trainer.app.contro
 - [ ] Teste da parada: com o trainer no ar, `docker exec laya-trainer python -m trainer.app.control status`.
 
 ## Ainda fora
-- Servir a versão em sombra ao lado da produção (fatia 10). "Promovida à sombra" hoje é status no registro.
+- ~~Servir a versão em sombra ao lado da produção (fatia 10).~~ Feito para `visao`: ver `2026-11-16-fatia10-laya-visao.md`.
 - Pesos do `laya` no formato do `hf-encoder`; por isso `TRAINER_KINDS` começa só com `visao`.
 - Nada disto foi executado contra o Kaggle real.

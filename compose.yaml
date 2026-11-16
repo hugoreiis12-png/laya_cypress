@@ -11,6 +11,9 @@ services:
       LAYA_API_KEY: ${LAYA_API_KEY:-}
       LAYA_CONFIDENCE_FIELD: ${LAYA_CONFIDENCE_FIELD:-answer_confidence}
       LAYA_TIMEOUT: ${LAYA_TIMEOUT:-10}
+      LAYA_VISION_REGISTRY: ${LAYA_VISION_REGISTRY:-}
+      LAYA_VISION_TAKEOVER: ${LAYA_VISION_TAKEOVER:-}
+      LAYA_VISION_MIN_CONFIDENCE: ${LAYA_VISION_MIN_CONFIDENCE:-0.90}
       QUEUE_TIMEOUT: ${QUEUE_TIMEOUT:-25}
       MAX_CONCURRENCY: ${MAX_CONCURRENCY:-2}
       TYPE_ENGINE: ${TYPE_ENGINE:-laya}
@@ -44,6 +47,7 @@ services:
     volumes:
       - /opt/laya-cypress/dados:/srv/dados
       - /opt/laya-trainer/data/inbox:/srv/inbox
+      - /opt/laya-trainer/data/registro:/srv/registro:ro
     mem_limit: 2g
     cpus: "2.0"
     read_only: true

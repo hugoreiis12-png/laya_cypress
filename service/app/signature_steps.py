@@ -119,8 +119,23 @@ def _current(engines: Engines, data: bytes, evidence: Evidence, fields: dict[str
     return _review(engines, upright_jpeg(data, evidence.rotation), verdict, started, meta)
 
 
+def _laya_vision(engines: Engines, data: bytes, rotation: int, meta: dict[str, Any]) -> SignatureVerdict | None:
+    """Always recorded next to the judge; it decides only when its version is ready and the takeover is on."""
+    if engines.laya_vision is None:
+        return None
+    observed = engines.laya_vision.observe(data, rotation)
+    settings = engines.settings
+    verdict = signature_decision.from_laya_vision(observed, settings.laya_vision_takeover,
+                                                  settings.laya_vision_min_confidence)
+    meta["laya_visao"] = {**observed, "assumiu": verdict is not None}
+    return verdict
+
+
 def decide(engines: Engines, data: bytes, evidence: Evidence, fields: dict[str, Any], started: float,
            meta: dict[str, Any]) -> SignatureVerdict:
+    taken = _laya_vision(engines, data, evidence.rotation, meta)
+    if taken is not None:
+        return taken
     engine = engines.settings.signature_engine
     if engine == SIGNATURE_ENGINE_JUDGE:
         return _judge_alone(engines, data, evidence.rotation, started, meta)

@@ -5,6 +5,8 @@ from typing import Any
 
 from .gate import Verdict
 from .metrics import Metrics
+from .registry import BASELINE, SHADOW
+from .takeover import Readiness
 
 REMAINING_ERROR = 0.05
 PERCENT = 100
@@ -12,10 +14,19 @@ NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
 TOLERANCE = 0.051  # a percentage printed with one decimal
 
 
-def build_report(metrics: Metrics, verdict: Verdict, min_reduction: float, in_progress: Sequence[str]) -> dict[str, Any]:
+def _takeover(readiness: Readiness | None) -> dict[str, Any] | None:
+    if readiness is None:
+        return None
+    return {"pronta": readiness.ready, "acerto": readiness.accuracy, "minimo": readiness.minimum,
+            "amostras_teste": readiness.test_count, "minimo_amostras": readiness.min_test,
+            "motivos": list(readiness.reasons)}
+
+
+def build_report(metrics: Metrics, verdict: Verdict, min_reduction: float, in_progress: Sequence[str],
+                 status: str = SHADOW, readiness: Readiness | None = None) -> dict[str, Any]:
     classes = metrics.per_class
     return {
-        "versao": metrics.version, "base": metrics.base, "teste": metrics.test,
+        "versao": metrics.version, "status": status, "assumir": _takeover(readiness), "base": metrics.base, "teste": metrics.test,
         "antes": {"erro": metrics.base_error}, "depois": {"erro": metrics.error, "confianca": metrics.confidence},
         "reducao_relativa": verdict.reduction, "criterio_reducao": min_reduction, "seguranca": dict(metrics.safety),
         "melhorou": sorted(name for name, item in classes.items() if item.base is not None and item.current < item.base),
@@ -66,14 +77,31 @@ def _listed(items: Sequence[str]) -> str:
     return ", ".join(items) if items else "nenhum"
 
 
+def headline(report: Mapping[str, Any]) -> str:
+    action = "registrada como referência" if report.get("status") == BASELINE else "promovida à sombra"
+    ready = " e pronta para assumir" if (report.get("assumir") or {}).get("pronta") else ""
+    return f"versão {report['versao']} {action}{ready}"
+
+
+def _takeover_lines(report: Mapping[str, Any]) -> list[str]:
+    takeover = report.get("assumir")
+    if not takeover:
+        return []
+    verdict = "sim" if takeover["pronta"] else f"não ({'; '.join(takeover['motivos'])})"
+    return [f"Acerto no teste: {_percent(takeover['acerto'])} (mínimo para assumir {_percent(takeover['minimo'])}), "
+            f"com {takeover['amostras_teste'] or 0} amostras (mínimo {takeover['minimo_amostras']}).",
+            f"Pronta para assumir: {verdict}."]
+
+
 def fallback_text(report: Mapping[str, Any]) -> str:
     """Plain text built by code, used when the written narrative cannot be trusted."""
     return "\n".join([
-        f"Versão {report['versao']} promovida à sombra, medida no teste {report['teste']}.",
+        f"{headline(report).capitalize()}, medida no teste {report['teste']}.",
         f"Erro antes: {_percent(report['antes']['erro'])}. Erro agora: {_percent(report['depois']['erro'])}.",
         f"Redução relativa do erro: {_percent(report['reducao_relativa'])} (mínimo exigido {_percent(report['criterio_reducao'])}).",
         f"Onde melhorou: {_listed(report['melhorou'])}.",
         f"Gaps de antes: {_listed(report['gaps'])}.",
         f"O que falta melhorar: {_listed(report['falta'])}.",
         f"Em andamento: {_listed(report['em_andamento'])}.",
+        *_takeover_lines(report),
     ])

@@ -5,13 +5,15 @@ from tests.trainer_support import at, settings
 from trainer.app import scheduler
 from trainer.app.cycle import Cycle, DataError
 from trainer.app.kaggle_client import COMPLETE, FAILED, RUNNING, KaggleError, QuotaExceeded
-from trainer.app.registry import Registry
+from trainer.app.registry import BASELINE, SHADOW, Registry
 from trainer.app.mailing import MailError
+from trainer.app.report import fallback_text
 from trainer.app.state import HALTED, KIND_VISION, SCHEDULED, load_state, save_state
 
 NIGHT = at(23)
 GOOD = {"teste": "teste-p15", "erro": 0.08, "por_classe": {"assinado": 0.03, "nao_assinado": 0.15},
         "seguranca": {"nao_assinado_liberado": 0, "carimbo_liberado": 0}, "confianca": 0.9}
+SENT_BOTH = ["visao-0001", "visao-0002"]
 
 
 class FakeData:
@@ -48,7 +50,7 @@ class FakeGateway:
     def download(self, kernel, destination):
         destination.mkdir(parents=True, exist_ok=True)
         (destination / "metricas.json").write_text(json.dumps(self.metrics), encoding="utf-8")
-        (destination / "pesos.bin").write_bytes(b"pesos")
+        (destination / "pesos.onnx").write_bytes(b"pesos")
 
     def delete_dataset(self, slug):
         self.deleted.append(slug)
@@ -98,15 +100,35 @@ def test_a_clearly_better_version_goes_to_shadow_and_is_announced_once(tmp_path)
     sent = []
     better = {**GOOD, "erro": 0.05, "por_classe": {"assinado": 0.02, "nao_assinado": 0.1}}
     cycle, registry = run_two_jobs(tmp_path, better, notify=sent.append)
-    assert registry.current(KIND_VISION) == "visao-0002" and len(sent) == 1
-    assert sent[0]["versao"] == "visao-0002" and load_state(tmp_path / "estado.json").notified == ("visao-0002",)
+    assert registry.current(KIND_VISION) == "visao-0002" and [report["versao"] for report in sent] == SENT_BOTH
+    assert sent[1]["status"] == SHADOW and load_state(tmp_path / "estado.json").notified == tuple(SENT_BOTH)
+
+
+def test_the_first_version_is_reported_as_the_baseline(tmp_path):
+    sent = []
+    run_two_jobs(tmp_path, GOOD, notify=sent.append)
+    assert sent[0]["versao"] == "visao-0001" and sent[0]["status"] == BASELINE
+    assert "referência" in fallback_text(sent[0]) and sent[0]["assumir"]["pronta"] is False
 
 
 def test_a_version_that_releases_an_unsigned_canhoto_is_not_promoted(tmp_path):
     unsafe = {**GOOD, "erro": 0.01, "seguranca": {"nao_assinado_liberado": 1, "carimbo_liberado": 0}}
     sent = []
     _, registry = run_two_jobs(tmp_path, unsafe, notify=sent.append)
-    assert registry.current(KIND_VISION) == "visao-0001" and sent == []
+    assert registry.current(KIND_VISION) == "visao-0001" and [report["versao"] for report in sent] == ["visao-0001"]
+
+
+def test_a_version_above_the_floor_on_a_large_test_is_marked_ready_for_the_service(tmp_path):
+    accurate = {**GOOD, "erro": 0.04, "amostras_teste": 150, "classes": ["assinado", "nao_assinado"]}
+    _, registry = run_two_jobs(tmp_path, accurate)
+    record = registry.versions()["visao-0002"]
+    assert record["pronta"] is True and record["classes"] == ["assinado", "nao_assinado"]
+    assert record["file"].endswith(".onnx") and registry.versions()["visao-0001"]["pronta"] is False
+
+
+def test_high_accuracy_on_a_small_test_is_not_ready(tmp_path):
+    _, registry = run_two_jobs(tmp_path, {**GOOD, "erro": 0.0, "amostras_teste": 5})
+    assert registry.versions()["visao-0002"]["pronta"] is False
 
 
 def test_quota_exhaustion_schedules_the_next_window_and_cleans_up(tmp_path):
@@ -170,7 +192,7 @@ def test_an_unsent_report_is_retried_an_hour_later_not_lost(tmp_path):
     clock_now = load_state(tmp_path / "estado.json").mail_retry_at
     cycle.clock = lambda: clock_now
     cycle.tick()
-    assert attempts == ["visao-0002", "visao-0002"] and load_state(tmp_path / "estado.json").notified == ("visao-0002",)
+    assert attempts == ["visao-0001", *SENT_BOTH] and load_state(tmp_path / "estado.json").notified == tuple(SENT_BOTH)
 
 
 def test_status_lookup_errors_keep_the_job_for_the_next_tick(tmp_path):

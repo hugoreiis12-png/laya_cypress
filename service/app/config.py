@@ -31,6 +31,7 @@ DEFAULT_JUDGE_MIN_VOTE_CONFIDENCE = 80.0  # provisional: below this the judge's 
 DEFAULT_JUDGE_READ_TIMEOUT = 8.0  # the signature vote still has to fit before the review deadline
 DEFAULT_FULL_ANALYSIS_QUEUE = 50  # photos waiting for an idle vLLM; beyond this they are dropped and logged
 DEFAULT_FULL_ANALYSIS_TIMEOUT = 60.0  # a whole-document answer is long and runs off the request path
+DEFAULT_LAYA_VISION_MIN_CONFIDENCE = 0.90  # the n8n If4 cutoff: a Laya release below it would be sent to review
 DEFAULT_CONCLUSIVE_TYPES = "canhoto"  # other types go to the reserve until they are measured
 TYPE_ENGINE_LAYA = "laya"
 TYPE_ENGINE_RULES = "regras"  # rules and access key decide; Laya is only observed until it beats them
@@ -95,6 +96,9 @@ class Settings:
     decision_log_path: str = ""  # empty: decisions are not persisted
     decision_digest_key: str = ""  # empty: the log does not compare what the engines read
     trainer_inbox_dir: str = ""  # empty: photos are not left for the trainer
+    laya_vision_registry: str = ""  # empty: Laya's own signature classifier is off
+    laya_vision_takeover: bool = False  # off: the classifier is only recorded, even when its version is ready
+    laya_vision_min_confidence: float = DEFAULT_LAYA_VISION_MIN_CONFIDENCE
 
 
 def _whitelist(raw: str) -> tuple[str, ...]:
@@ -173,4 +177,7 @@ def load(env: Mapping[str, str] | None = None) -> Settings:
         decision_log_path=env.get("DECISION_LOG_PATH", ""),
         decision_digest_key=env.get("DECISION_DIGEST_KEY", ""),
         trainer_inbox_dir=env.get("TRAINER_INBOX_DIR", ""),
+        laya_vision_registry=env.get("LAYA_VISION_REGISTRY", ""),
+        laya_vision_takeover=env.get("LAYA_VISION_TAKEOVER", "") == ENABLED,
+        laya_vision_min_confidence=float(env.get("LAYA_VISION_MIN_CONFIDENCE", DEFAULT_LAYA_VISION_MIN_CONFIDENCE)),
     )

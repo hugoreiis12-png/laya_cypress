@@ -25,6 +25,10 @@ class SignatureShadow(Protocol):
     def observe(self, data: bytes, rotation: int) -> dict[str, Any]: ...
 
 
+class LayaVisionModel(Protocol):
+    def observe(self, data: bytes, rotation: int) -> dict[str, Any]: ...
+
+
 class Judge(Protocol):
     def transcribe(self, data: bytes) -> str: ...
 
@@ -48,6 +52,7 @@ class Engines:
     judge: Judge | None = None
     judge_capacity: JudgeCapacity | None = None
     auditor: Auditor | None = None
+    laya_vision: LayaVisionModel | None = None
 
     def seconds_left(self, started: float) -> float:
         return self.settings.review_deadline - (time.monotonic() - started)

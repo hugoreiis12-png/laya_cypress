@@ -1,5 +1,6 @@
 """Deterministic signature engine: turns evidence into one of the four result states, apart from any model."""
 from dataclasses import dataclass
+from typing import Any
 
 from . import signature
 from .config import Settings
@@ -13,6 +14,7 @@ UNCERTAIN = "UNCERTAIN"
 INVALID_IMAGE = "INVALID_IMAGE"
 PERCENT = 100
 TWO_VOTES_CONFIDENCE = 95.0  # above the n8n If4 cutoff of 90: only two independent votes may release a canhoto
+LAYA_SIGNED = "assinado"
 JUDGE_RELEASE_CONFIDENCE = 95.0  # above the n8n If4 cutoff of 90, whatever confidence above the minimum the judge gave
 
 
@@ -56,6 +58,16 @@ def from_judge_alone(opinion: SignatureOpinion | None, min_confidence: float) ->
     if opinion is None or opinion.signed is not True or opinion.confidence < min_confidence:
         return UNDECIDED
     return SignatureVerdict(SIGNED, JUDGE_RELEASE_CONFIDENCE)
+
+
+def from_laya_vision(observed: dict[str, Any], takeover: bool, min_confidence: float) -> SignatureVerdict | None:
+    """Laya releases alone only a ready version's confident "signed"; anything else leaves the case to the judge."""
+    confidence = observed.get("confianca")
+    if not takeover or observed.get("pronta") is not True or observed.get("rotulo") != LAYA_SIGNED:
+        return None
+    if not isinstance(confidence, (int, float)) or confidence < min_confidence:
+        return None
+    return SignatureVerdict(SIGNED, PERCENT * confidence)
 
 
 def from_judge(opinion: SignatureOpinion, max_confidence: float) -> SignatureVerdict:

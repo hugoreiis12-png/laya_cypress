@@ -8,12 +8,12 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol
 
-from . import backup, gate, scheduler
+from . import backup, gate, scheduler, takeover
 from .alerts import halt_message
 from .config import Settings
 from .kaggle_client import COMPLETE, FAILED, JobGateway, KaggleError, QuotaExceeded
 from .mailing import MailError
-from .metrics import MetricsError, from_kernel
+from .metrics import Metrics, MetricsError, from_kernel
 from .registry import Registry, RegistryError
 from .report import build_report
 from .state import KIND_LAYA, KIND_VISION, TrainerState, load_state, save_state
@@ -22,7 +22,8 @@ log = logging.getLogger(__name__)
 KERNEL_TIMEOUT_SECONDS = 10 * 3600  # Kaggle stops a run at about 9 hours
 KERNELS_DIR = Path(__file__).resolve().parent.parent / "kernels"
 KERNEL_SCRIPTS = {KIND_VISION: KERNELS_DIR / "train_vision.py", KIND_LAYA: KERNELS_DIR / "train_laya.py"}
-METRICS_FILE, WEIGHTS_FILE = "metricas.json", "pesos.bin"
+METRICS_FILE = "metricas.json"
+WEIGHTS_FILES = {KIND_VISION: "pesos.onnx", KIND_LAYA: "pesos.bin"}  # the vision weights are served as ONNX
 MAIL_RETRY_SECONDS = 3600  # an unsent report is tried again hourly, not on every tick
 JOB_ERRORS = (KaggleError, MetricsError, RegistryError, OSError, ValueError)
 
@@ -114,7 +115,8 @@ class Cycle:
         version = self.registry.next_version(kind)
         raw = json.loads((output / METRICS_FILE).read_text(encoding="utf-8"))
         metrics = from_kernel(raw, version, base_version, self.registry.metrics_of(base_version))
-        self.registry.register(kind, version, output / WEIGHTS_FILE, metrics)
+        ready = self._readiness(metrics).ready
+        self.registry.register(kind, version, output / WEIGHTS_FILES[kind], metrics, raw.get("classes"), ready)
         verdict = gate.evaluate(metrics, self.settings.min_error_reduction)
         if verdict.baseline:
             self.registry.mark_baseline(kind, version)
@@ -123,19 +125,26 @@ class Cycle:
         else:
             log.info("versão %s não promovida: %s", version, "; ".join(verdict.reasons))
 
+    def _readiness(self, metrics: Metrics) -> takeover.Readiness:
+        return takeover.evaluate(metrics, self.settings.takeover_accuracy, self.settings.takeover_min_test)
+
+    def _report(self, status: str, metrics: Metrics) -> dict[str, Any]:
+        verdict = gate.evaluate(metrics, self.settings.min_error_reduction)
+        return build_report(metrics, verdict, self.settings.min_error_reduction, self.settings.kinds, status,
+                            self._readiness(metrics))
+
     def _announce_pending(self, now: float) -> None:
-        """Every shadow version gets its report once; a failed send is retried later instead of being lost."""
+        """Every baseline and shadow version gets its report once; a failed send is retried later, not lost."""
         state = load_state(self._state_path)
         if self.notify is None or now < state.mail_retry_at:
             return
         sent: list[str] = []
         retry_at = 0.0
-        for metrics in self.registry.shadow_metrics():
+        for status, metrics in self.registry.announceable():
             if metrics.version in state.notified:
                 continue
-            verdict = gate.evaluate(metrics, self.settings.min_error_reduction)
             try:
-                self.notify(build_report(metrics, verdict, self.settings.min_error_reduction, self.settings.kinds))
+                self.notify(self._report(status, metrics))
             except MailError as exc:
                 log.error("relatório da versão %s não enviado, nova tentativa em 1 h: %s", metrics.version, exc)
                 retry_at = now + MAIL_RETRY_SECONDS

@@ -35,13 +35,16 @@ class Registry:
         count = sum(1 for record in self._load()["versions"].values() if record["kind"] == kind)
         return f"{kind}-{count + 1:04d}"
 
-    def register(self, kind: str, version: str, weights: Path, metrics: Metrics) -> None:
+    def register(self, kind: str, version: str, weights: Path, metrics: Metrics,
+                 classes: list[str] | None = None, ready: bool = False) -> None:
+        """`file`, `classes` and `pronta` are what the service reads to load a version and to let it decide."""
         digest = _sha256(weights)
-        stored = self._directory / "pesos" / f"{digest}.bin"
+        stored = self._directory / "pesos" / f"{digest}{weights.suffix}"
         stored.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(weights, stored)
         data = self._load()
-        data["versions"][version] = {"kind": kind, "sha256": digest, "status": CANDIDATE, "metrics": metrics.to_dict()}
+        data["versions"][version] = {"kind": kind, "sha256": digest, "status": CANDIDATE, "metrics": metrics.to_dict(),
+                                     "file": stored.name, "classes": classes, "pronta": ready}
         write_json(self._file, data)
 
     def _record(self, data: dict[str, Any], version: str) -> dict[str, Any]:
@@ -72,6 +75,11 @@ class Registry:
     def shadow_metrics(self) -> list[Metrics]:
         """Every version currently in shadow, in registration order; a reverted one is no longer listed."""
         return [Metrics.from_dict(record["metrics"]) for record in self.versions().values() if record["status"] == SHADOW]
+
+    def announceable(self) -> list[tuple[str, Metrics]]:
+        """Baseline and shadow versions, each with its status: both get a benchmark report."""
+        return [(record["status"], Metrics.from_dict(record["metrics"])) for record in self.versions().values()
+                if record["status"] in (BASELINE, SHADOW)]
 
     def metrics_of(self, version: str | None) -> Metrics | None:
         if version is None:

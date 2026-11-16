@@ -17,6 +17,8 @@ DEFAULT_WINDOW = "22:00-06:00"
 DEFAULT_QUOTA_WAIT_HOURS = 24.0
 DEFAULT_TEST_PERCENT = 15
 DEFAULT_MIN_ERROR_REDUCTION = 0.20
+DEFAULT_TAKEOVER_ACCURACY = 0.90  # decided 16/11: Laya takes a kind over only above this, measured on the frozen test
+DEFAULT_TAKEOVER_MIN_TEST = 100
 DEFAULT_TICK_SECONDS = 30.0
 DEFAULT_HERMES_MODEL = "hermes3:8b"
 DEFAULT_HERMES_TIMEOUT = 60.0
@@ -63,6 +65,8 @@ class Settings:
     hermes_model: str
     hermes_timeout: float
     mail: MailSettings
+    takeover_accuracy: float = DEFAULT_TAKEOVER_ACCURACY
+    takeover_min_test: int = DEFAULT_TAKEOVER_MIN_TEST
 
 
 def parse_window(raw: str) -> tuple[int, int]:
@@ -123,4 +127,6 @@ def load(env: Mapping[str, str] | None = None) -> Settings:
         min_error_reduction=float(env.get("TRAINER_MIN_ERROR_REDUCTION", DEFAULT_MIN_ERROR_REDUCTION)),
         tick_seconds=float(env.get("TRAINER_TICK_SECONDS", DEFAULT_TICK_SECONDS)),
         hermes_url=env.get("HERMES_URL", "").rstrip("/"), hermes_model=env.get("HERMES_MODEL", DEFAULT_HERMES_MODEL),
-        hermes_timeout=float(env.get("HERMES_TIMEOUT", DEFAULT_HERMES_TIMEOUT)), mail=_mail(env))
+        hermes_timeout=float(env.get("HERMES_TIMEOUT", DEFAULT_HERMES_TIMEOUT)), mail=_mail(env),
+        takeover_accuracy=float(env.get("TRAINER_TAKEOVER_ACCURACY", DEFAULT_TAKEOVER_ACCURACY)),
+        takeover_min_test=int(env.get("TRAINER_TAKEOVER_MIN_TEST", DEFAULT_TAKEOVER_MIN_TEST)))

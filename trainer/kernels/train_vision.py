@@ -1,24 +1,45 @@
-"""Kaggle kernel: trains a YOLOv8 classifier on the receiver strips and writes metricas.json and pesos.bin.
+"""Kaggle kernel: trains a YOLOv8 classifier on the receiver strips and writes metricas.json and pesos.onnx.
 
-Runs on Kaggle, never inside the trainer container. Not yet exercised on the real service.
+The frozen test is measured on the exported ONNX with the service's own input transform, so the numbers are
+those of the model the service runs. Runs on Kaggle, never inside the trainer container.
 """
 import json
 import random
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
-from ultralytics import YOLO
+PACKAGES = ("ultralytics==8.3.40", "onnx==1.17.0", "onnxruntime==1.20.1")
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", *PACKAGES])
+
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
+import onnxruntime  # noqa: E402
+from ultralytics import YOLO  # noqa: E402
 
 INPUT = next(Path("/kaggle/input").iterdir())
 WORK = Path("/kaggle/working")
 DATA = WORK / "dados"
 EPOCHS = 30
-IMAGE_SIZE = 320
+CLASSIFIER_SIZE = 320
+PIXEL_SCALE = 255.0
 VALIDATION_SHARE = 0.1
 SEED = 7
-UNSIGNED_LABELS = ("nao_assinado", "carimbo_somente")
 SIGNED = "assinado"
 SAFETY_KEYS = {"nao_assinado": "nao_assinado_liberado", "carimbo_somente": "carimbo_liberado"}
+
+
+def classifier_input(image: np.ndarray) -> np.ndarray:
+    """Copy of service/app/vision/strip.py:classifier_input; a test keeps the two identical."""
+    height, width = image.shape[:2]
+    scale = CLASSIFIER_SIZE / min(height, width)
+    size = (max(CLASSIFIER_SIZE, round(width * scale)), max(CLASSIFIER_SIZE, round(height * scale)))
+    resized = cv2.resize(image, size, interpolation=cv2.INTER_LINEAR)
+    top, left = (resized.shape[0] - CLASSIFIER_SIZE) // 2, (resized.shape[1] - CLASSIFIER_SIZE) // 2
+    square = resized[top:top + CLASSIFIER_SIZE, left:left + CLASSIFIER_SIZE]
+    rgb = cv2.cvtColor(square, cv2.COLOR_BGR2RGB).astype(np.float32) / PIXEL_SCALE
+    return np.ascontiguousarray(rgb.transpose(2, 0, 1)[None])
 
 
 def split_validation() -> None:
@@ -34,33 +55,43 @@ def split_validation() -> None:
             shutil.move(str(path), target / path.name)
 
 
-def evaluate(model: YOLO) -> dict:
+def probabilities(session: onnxruntime.InferenceSession, path: Path) -> np.ndarray:
+    feed = {session.get_inputs()[0].name: classifier_input(cv2.imread(str(path), cv2.IMREAD_COLOR))}
+    return np.asarray(session.run(None, feed)[0][0], dtype=np.float64)
+
+
+def evaluate(session: onnxruntime.InferenceSession, classes: list[str]) -> dict:
     wrong: dict[str, int] = {}
     total: dict[str, int] = {}
     safety = {key: 0 for key in SAFETY_KEYS.values()}
     confidences = []
     for folder in (DATA / "test").iterdir():
         for path in folder.glob("*.jpg"):
-            result = model.predict(str(path), imgsz=IMAGE_SIZE, verbose=False)[0]
-            predicted, confidence = result.names[result.probs.top1], float(result.probs.top1conf)
-            confidences.append(confidence)
+            probs = probabilities(session, path)
+            predicted = classes[int(probs.argmax())]
+            confidences.append(float(probs.max()))
             total[folder.name] = total.get(folder.name, 0) + 1
             wrong[folder.name] = wrong.get(folder.name, 0) + (predicted != folder.name)
             if folder.name in SAFETY_KEYS and predicted == SIGNED:
                 safety[SAFETY_KEYS[folder.name]] += 1
     count = sum(total.values())
-    return {"teste": json.loads((INPUT / "manifest.json").read_text(encoding="utf-8"))["teste"], "erro": sum(wrong.values()) / count if count else 1.0,
+    return {"teste": json.loads((INPUT / "manifest.json").read_text(encoding="utf-8"))["teste"],
+            "erro": sum(wrong.values()) / count if count else 1.0,
             "por_classe": {name: wrong.get(name, 0) / size for name, size in total.items()},
-            "seguranca": safety, "confianca": sum(confidences) / len(confidences) if confidences else 0.0}
+            "seguranca": safety, "confianca": sum(confidences) / len(confidences) if confidences else 0.0,
+            "amostras_teste": count, "classes": classes}
 
 
 def main() -> None:
     split_validation()
     model = YOLO("yolov8n-cls.pt")
-    model.train(data=str(DATA), epochs=EPOCHS, imgsz=IMAGE_SIZE, project=str(WORK / "runs"), name="treino")
+    model.train(data=str(DATA), epochs=EPOCHS, imgsz=CLASSIFIER_SIZE, project=str(WORK / "runs"), name="treino")
     best = YOLO(str(model.trainer.best))
-    (WORK / "metricas.json").write_text(json.dumps(evaluate(best)), encoding="utf-8")
-    shutil.copyfile(model.trainer.best, WORK / "pesos.bin")
+    classes = [best.names[index] for index in range(len(best.names))]
+    exported = Path(best.export(format="onnx", imgsz=CLASSIFIER_SIZE))
+    session = onnxruntime.InferenceSession(str(exported), providers=["CPUExecutionProvider"])
+    (WORK / "metricas.json").write_text(json.dumps(evaluate(session, classes)), encoding="utf-8")
+    shutil.copyfile(exported, WORK / "pesos.onnx")
 
 
 if __name__ == "__main__":

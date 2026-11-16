@@ -2,10 +2,9 @@
 import cv2
 import numpy as np
 
-RECEIVER_TOP_FRACTION = 0.5  # the same half the judge reads; 0.22 cut the signature off photos with a margin
+from service.app.vision.strip import STRIP_JPEG_QUALITY, upright_top_half
+
 MIN_STRIP_PIXELS = 32
-JPEG_QUALITY = 90
-ROTATIONS = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180, 270: cv2.ROTATE_90_COUNTERCLOCKWISE}
 
 
 class CropError(ValueError):
@@ -20,12 +19,10 @@ def _decode(data: bytes) -> np.ndarray:
 
 
 def receiver_strip(data: bytes, rotation: int) -> bytes:
-    image = _decode(data)
-    upright = cv2.rotate(image, ROTATIONS[rotation]) if rotation in ROTATIONS else image
-    strip = upright[: int(upright.shape[0] * RECEIVER_TOP_FRACTION)]
+    strip = upright_top_half(_decode(data), rotation)
     if strip.shape[0] < MIN_STRIP_PIXELS:
         raise CropError("faixa do recebedor pequena demais")
-    done, encoded = cv2.imencode(".jpg", strip, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+    done, encoded = cv2.imencode(".jpg", strip, [cv2.IMWRITE_JPEG_QUALITY, STRIP_JPEG_QUALITY])
     if not done:
         raise CropError("falha ao codificar a faixa")
     return encoded.tobytes()

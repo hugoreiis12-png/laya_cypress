@@ -29,3 +29,31 @@ def test_the_laya_kernel_reads_what_the_text_package_writes(tmp_path):
     for name in ("train.jsonl", "test.jsonl"):
         assert (tmp_path / name).is_file() and f'"{name}"' in source
     assert '"texto"' in source and '"rotulo"' in source
+
+
+def _kernel_function(script, name, namespace):
+    tree = ast.parse(script.read_text(encoding="utf-8"))
+    nodes = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == name]
+    constants = [node for node in tree.body if isinstance(node, ast.Assign)
+                 and all(isinstance(target, ast.Name) and target.id in ("CLASSIFIER_SIZE", "PIXEL_SCALE")
+                         for target in node.targets)]
+    exec(compile(ast.Module(body=constants + nodes, type_ignores=[]), str(script), "exec"), namespace)
+    return namespace[name]
+
+
+def test_the_vision_kernel_measures_with_the_same_input_the_service_feeds_the_model():
+    import cv2
+    import numpy as np
+    from service.app.vision.strip import classifier_input
+
+    kernel_input = _kernel_function(cycle.KERNELS_DIR / "train_vision.py", "classifier_input", {"cv2": cv2, "np": np})
+    for height, width in ((400, 900), (700, 300), (320, 320)):
+        image = np.random.default_rng(height).integers(0, 255, (height, width, 3), dtype=np.uint8)
+        assert np.array_equal(kernel_input(image), classifier_input(image))
+        assert classifier_input(image).shape == (1, 3, 320, 320)
+
+
+def test_the_vision_kernel_writes_what_the_service_loads():
+    source = (cycle.KERNELS_DIR / "train_vision.py").read_text(encoding="utf-8")
+    assert '"pesos.onnx"' in source and cycle.WEIGHTS_FILES["visao"] == "pesos.onnx"
+    assert '"classes"' in source and '"amostras_teste"' in source

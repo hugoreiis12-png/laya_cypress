@@ -16,6 +16,7 @@ from .full_analysis import FullAnalysis
 from .hermes_client import HermesClient
 from .judge_capacity import JudgeCapacity
 from .laya_client import LayaClient
+from .laya_vision import LayaVision
 from .pipeline import Pipeline
 from .signature_model import SignatureModelClient
 from .signature_shadow import ShadowDetector
@@ -67,8 +68,9 @@ def _pipeline(settings: config.Settings) -> Pipeline:
     judge = VisionJudge(settings) if settings.judge_url and settings.judge_model else None
     capacity = JudgeCapacity(settings) if judge else None
     auditor = hermes if settings.hermes_audit else None
+    laya_vision = LayaVision(settings.laya_vision_registry) if settings.laya_vision_registry else None
     return Pipeline(settings, analyze, LayaClient(settings), signature_model, shadow, hermes=hermes, judge=judge,
-                    judge_capacity=capacity, auditor=auditor)
+                    judge_capacity=capacity, auditor=auditor, laya_vision=laya_vision)
 
 
 def _full_analysis(settings: config.Settings, decisions: DecisionLog) -> FullAnalysis | None:
