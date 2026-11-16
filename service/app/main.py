@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from . import config
 from .decision_log import DecisionLog, decision_record, reference_record
+from .full_analysis import FullAnalysis
 from .hermes_client import HermesClient
 from .judge_capacity import JudgeCapacity
 from .laya_client import LayaClient
@@ -69,11 +70,21 @@ def _pipeline(settings: config.Settings) -> Pipeline:
                     judge_capacity=capacity, auditor=auditor)
 
 
-def create_app(settings: config.Settings | None = None, pipeline: Pipeline | None = None) -> FastAPI:
+def _full_analysis(settings: config.Settings, decisions: DecisionLog) -> FullAnalysis | None:
+    if not (settings.full_analysis and settings.judge_url and settings.judge_model):
+        return None
+    full = FullAnalysis(settings, VisionJudge(settings), JudgeCapacity(settings).vllm_idle, decisions.write)
+    full.start()
+    return full
+
+
+def create_app(settings: config.Settings | None = None, pipeline: Pipeline | None = None,
+               full: FullAnalysis | None = None) -> FastAPI:
     settings = settings or config.load()
     pipeline = pipeline or _pipeline(settings)
     workers = threading.BoundedSemaphore(settings.max_concurrency)
     decisions = DecisionLog(settings.decision_log_path)
+    full = full or _full_analysis(settings, decisions)
     app = FastAPI(title="Comprover · Extração de Documentos", docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.get("/healthz")
@@ -93,6 +104,8 @@ def create_app(settings: config.Settings | None = None, pipeline: Pipeline | Non
         finally:
             workers.release()
         decisions.write(decision_record(result, settings.decision_digest_key))
+        if full is not None:
+            full.submit(req.contexto.id if req.contexto else None, data, result["_meta"].get("rotacao") or 0)
         return result
 
     @app.post("/v1/referencia")

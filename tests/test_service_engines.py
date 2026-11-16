@@ -148,10 +148,11 @@ def test_decision_log_keeps_the_decision_but_no_document_content(tmp_path):
 
 
 def test_reference_keeps_only_type_and_signature_verdict():
-    gemini = json.dumps({"tipo_documento": "canhoto", "assinatura": {"possui_assinatura": False},
+    gemini = json.dumps({"tipo_documento": "canhoto", "assinatura": {"possui_assinatura": False, "confianca": 90},
                          "emitente": {"cnpj": "36.895.856/0001-10"}})
     assert reference_record("abc", "gemini", f"```json\n{gemini}\n```") == {
-        "evento": "referencia", "id": "abc", "origem": "gemini", "tipo": "canhoto", "possui_assinatura": False}
+        "evento": "referencia", "id": "abc", "origem": "gemini", "tipo": "canhoto", "possui_assinatura": False,
+        "confianca_assinatura": 90}
 
 
 def test_unparseable_reference_is_recorded_without_content():

@@ -86,4 +86,4 @@ def reference_record(record_id: str, source: str, output: Any, digest_key: str =
     signature = parsed.get("assinatura") if isinstance(parsed.get("assinatura"), dict) else {}
     compared = {"campos": comparable(parsed, digest_key)} if digest_key else {}
     return {**record, "tipo": parsed.get("tipo_documento"), "possui_assinatura": signature.get("possui_assinatura"),
-            **compared}
+            "confianca_assinatura": signature.get("confianca"), **compared}

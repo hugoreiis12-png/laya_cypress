@@ -51,14 +51,18 @@ class JudgeCapacity:
         self._sleep, self._clock = sleep, clock
         self._slots = threading.BoundedSemaphore(settings.judge_max_in_flight)
 
-    def _load_refusal(self) -> str | None:
-        """Unknown load counts as no room: the case goes to the reserve instead of pressing the vLLM."""
+    def _metrics(self) -> dict[str, float] | None:
         try:
             response = self._http.get(self._settings.judge_url + METRICS_ENDPOINT, timeout=METRICS_TIMEOUT)
             response.raise_for_status()
         except httpx.HTTPError:
-            return METRICS_DOWN
-        return refusal_for(read_metrics(response.text), self._settings)
+            return None
+        return read_metrics(response.text)
+
+    def _load_refusal(self) -> str | None:
+        """Unknown load counts as no room: the case goes to the reserve instead of pressing the vLLM."""
+        metrics = self._metrics()
+        return METRICS_DOWN if metrics is None else refusal_for(metrics, self._settings)
 
     def _admission(self, deadline: float) -> str | None:
         """Polls the vLLM load while the refusal is a short-lived one and the patience lasts."""
@@ -67,6 +71,11 @@ class JudgeCapacity:
             self._sleep(POLL_SECONDS)
             refusal = self._load_refusal()
         return refusal
+
+    def vllm_idle(self) -> bool:
+        """Background work runs only on an idle vLLM and never takes this service's live slot."""
+        metrics = self._metrics()
+        return metrics is not None and metrics.get(RUNNING, 1.0) == 0 and metrics.get(WAITING, 1.0) == 0
 
     def enter(self) -> str | None:
         """Returns None when admitted, otherwise why not; an admitted caller must call leave."""
