@@ -11,7 +11,7 @@ from .laya_client import state_for
 from .signature_decision import UNCERTAIN, SignatureVerdict
 from .signature_model import SignatureModelError
 from .vision.analyze import Evidence
-from .vision.image_io import upright_jpeg
+from .vision.image_io import upper_half_close_up, upright_jpeg
 from .vision_judge import JudgeError, SignatureOpinion
 
 log = logging.getLogger(__name__)
@@ -61,10 +61,27 @@ def _two_votes(engines: Engines, data: bytes, evidence: Evidence, started: float
     return verdict
 
 
-def _judge_alone(engines: Engines, data: bytes, started: float, meta: dict[str, Any]) -> SignatureVerdict:
-    opinion = _ask_signature(engines, data, started, meta)
+def _second_look(engines: Engines, data: bytes, rotation: int, started: float,
+                 meta: dict[str, Any]) -> SignatureOpinion | None:
+    """A "no" on the whole photo gets one closer look at the canhoto; a "yes" is never asked twice."""
+    opinion = _ask_signature(engines, upper_half_close_up(data, rotation), started, meta)
+    meta["segunda_olhada"] = {"juiz": opinion.signed if opinion else None,
+                              "confianca": opinion.confidence if opinion else None}
+    return opinion
+
+
+def _judge_alone(engines: Engines, data: bytes, rotation: int, started: float,
+                 meta: dict[str, Any]) -> SignatureVerdict:
+    minimum = engines.settings.judge_min_vote_confidence
+    opinion = _ask_signature(engines, upright_jpeg(data, rotation), started, meta)
+    verdict = signature_decision.from_judge_alone(opinion, minimum)
+    if not verdict.signed and engines.settings.judge_second_look:
+        closer = _second_look(engines, data, rotation, started, meta)
+        closer_verdict = signature_decision.from_judge_alone(closer, minimum)
+        if closer_verdict.signed:
+            opinion, verdict = closer, closer_verdict
     _record_votes(meta, None, opinion)
-    return signature_decision.from_judge_alone(opinion, engines.settings.judge_min_vote_confidence)
+    return verdict
 
 
 def _model_signature(engines: Engines, evidence: Evidence, fields: dict[str, Any],
@@ -106,7 +123,7 @@ def decide(engines: Engines, data: bytes, evidence: Evidence, fields: dict[str, 
            meta: dict[str, Any]) -> SignatureVerdict:
     engine = engines.settings.signature_engine
     if engine == SIGNATURE_ENGINE_JUDGE:
-        return _judge_alone(engines, upright_jpeg(data, evidence.rotation), started, meta)
+        return _judge_alone(engines, data, evidence.rotation, started, meta)
     if engine == SIGNATURE_ENGINE_TWO_VOTES:
         return _two_votes(engines, data, evidence, started, meta)
     return _current(engines, data, evidence, fields, started, meta)
