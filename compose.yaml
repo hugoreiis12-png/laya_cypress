@@ -31,13 +31,19 @@ services:
       JUDGE_READ_KEY: ${JUDGE_READ_KEY:-}
       JUDGE_READ_TIMEOUT: ${JUDGE_READ_TIMEOUT:-8}
       JUDGE_WAIT_SECONDS: ${JUDGE_WAIT_SECONDS:-5}
+      JUDGE_SECOND_LOOK: ${JUDGE_SECOND_LOOK:-}
       DECISION_LOG_PATH: ${DECISION_LOG_PATH:-}
       DECISION_DIGEST_KEY: ${DECISION_DIGEST_KEY:-}
+      FULL_ANALYSIS: ${FULL_ANALYSIS:-}
+      FULL_ANALYSIS_QUEUE: ${FULL_ANALYSIS_QUEUE:-50}
+      FULL_ANALYSIS_TIMEOUT: ${FULL_ANALYSIS_TIMEOUT:-60}
+      TRAINER_INBOX_DIR: ${TRAINER_INBOX_DIR:-}
     ports:
       - "192.168.0.160:8020:8020"
       - "100.66.232.113:8020:8020"
     volumes:
       - /opt/laya-cypress/dados:/srv/dados
+      - /opt/laya-trainer/data/inbox:/srv/inbox
     mem_limit: 2g
     cpus: "2.0"
     read_only: true
