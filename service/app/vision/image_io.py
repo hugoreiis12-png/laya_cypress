@@ -4,6 +4,7 @@ import numpy as np
 
 MAX_SIDE = 2400
 JPEG_QUALITY = 92
+CLOSE_UP_ZOOM = 2.0  # measured 16/11: the judge saw a signature across the stamp only at this zoom
 MIN_SIDE = 64  # below this no field is readable; also keeps half-scale resizes non-empty
 ROTATIONS = {
     90: cv2.ROTATE_90_CLOCKWISE,
@@ -45,4 +46,13 @@ def upright_jpeg(data: bytes, rotation: int) -> bytes:
     if rotation not in ROTATIONS:
         return data
     encoded, buffer = cv2.imencode(".jpg", rotate(decode(data), rotation), [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+    return buffer.tobytes() if encoded else data
+
+
+def upper_half_close_up(data: bytes, rotation: int) -> bytes:
+    """The top half of the upright photo, where a DANFE keeps its canhoto, enlarged for a second look."""
+    upright = rotate(decode(data), rotation)
+    half = upright[: max(MIN_SIDE, upright.shape[0] // 2)]
+    zoomed = cv2.resize(half, None, fx=CLOSE_UP_ZOOM, fy=CLOSE_UP_ZOOM, interpolation=cv2.INTER_CUBIC)
+    encoded, buffer = cv2.imencode(".jpg", zoomed, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
     return buffer.tobytes() if encoded else data

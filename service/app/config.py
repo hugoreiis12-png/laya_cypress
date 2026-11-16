@@ -83,6 +83,7 @@ class Settings:
     judge_transcribe: bool = True  # off keeps the vLLM for signature votes; unread photos go to the reserve
     judge_read_key: bool = False  # off until the directed question is measured: an invented key would attach to a wrong note
     judge_read_timeout: float = DEFAULT_JUDGE_READ_TIMEOUT
+    judge_second_look: bool = False  # on: a "no" from the judge gets a second look at the enlarged canhoto half
     judge_disable_thinking: bool = False  # off keeps the model's default reasoning; on asks vLLM to skip it per request
     full_analysis: bool = False  # on: the vLLM also reads every photo whole, in the background, as a reference
     full_analysis_queue: int = DEFAULT_FULL_ANALYSIS_QUEUE
@@ -159,6 +160,7 @@ def load(env: Mapping[str, str] | None = None) -> Settings:
         judge_transcribe=env.get("JUDGE_TRANSCRIBE", ENABLED) == ENABLED,
         judge_read_key=env.get("JUDGE_READ_KEY", "") == ENABLED,
         judge_read_timeout=float(env.get("JUDGE_READ_TIMEOUT", DEFAULT_JUDGE_READ_TIMEOUT)),
+        judge_second_look=env.get("JUDGE_SECOND_LOOK", "") == ENABLED,
         judge_disable_thinking=env.get("JUDGE_DISABLE_THINKING", "") == ENABLED,
         full_analysis=env.get("FULL_ANALYSIS", "") == ENABLED,
         full_analysis_queue=int(env.get("FULL_ANALYSIS_QUEUE", DEFAULT_FULL_ANALYSIS_QUEUE)),
