@@ -85,8 +85,10 @@ class Mailer:
             raise MailError(f"falha ao enviar o e-mail: {exc!r}") from exc
 
 
-def compose(report: Mapping[str, Any], writer: TextWriter) -> str:
+def compose(report: Mapping[str, Any], writer: TextWriter | None) -> str:
     """The narrative only leaves if every number in it exists in the report; otherwise the plain text goes."""
+    if writer is None:
+        return fallback_text(report)
     for _ in range(MAX_WRITE_ATTEMPTS):
         try:
             text = writer.write(report)
@@ -100,5 +102,5 @@ def compose(report: Mapping[str, Any], writer: TextWriter) -> str:
     return fallback_text(report)
 
 
-def send_report(report: Mapping[str, Any], writer: TextWriter, mailer: MailSender) -> None:
+def send_report(report: Mapping[str, Any], writer: TextWriter | None, mailer: MailSender) -> None:
     mailer.send(f"Laya: versão {report['versao']} promovida à sombra", compose(report, writer))

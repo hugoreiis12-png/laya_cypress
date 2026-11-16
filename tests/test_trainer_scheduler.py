@@ -2,7 +2,7 @@ import pytest
 
 from tests.trainer_support import ENV, at, settings
 from trainer.app import config, scheduler
-from trainer.app.state import KIND_LAYA, KIND_VISION, SCHEDULED, StateError, TrainerState, load_state, save_state
+from trainer.app.state import HALTED, KIND_LAYA, KIND_VISION, SCHEDULED, StateError, TrainerState, load_state, save_state
 
 ENOUGH = {KIND_LAYA: 500, KIND_VISION: 500}
 NIGHT = at(23)
@@ -63,19 +63,31 @@ def test_without_new_samples_it_stays_idle():
 
 def test_quota_exhaustion_schedules_the_same_kind_for_the_next_day():
     running = scheduler.start_job(TrainerState(), KIND_LAYA, {"kernel": "k"}, NIGHT)
-    failed = scheduler.fail_job(running, KIND_LAYA, NIGHT, settings(), quota=True)
+    failed = scheduler.wait_for_quota(running, KIND_LAYA, NIGHT, settings())
     assert failed.phase == SCHEDULED and failed.running is None and failed.next_kind == KIND_LAYA
     assert failed.wait_until == NIGHT + 24 * 3600
 
 
-def test_failures_back_off_then_give_up_and_move_on():
-    cfg = settings(max_retries=2)
-    state = TrainerState(next_kind=KIND_LAYA)
-    first = scheduler.fail_job(state, KIND_LAYA, NIGHT, cfg, quota=False)
-    second = scheduler.fail_job(first, KIND_LAYA, NIGHT, cfg, quota=False)
-    third = scheduler.fail_job(second, KIND_LAYA, NIGHT, cfg, quota=False)
-    assert (first.retries, second.retries) == (1, 2) and second.wait_until > first.wait_until
-    assert third.retries == 0 and third.next_kind == KIND_VISION
+def test_a_failure_halts_everything_until_resumed_with_its_backup():
+    running = scheduler.start_job(TrainerState(), KIND_LAYA, {"kernel": "k"}, NIGHT)
+    halted = scheduler.halt(running, KIND_LAYA, {"tipo": KIND_LAYA, "backup": "/srv/trainer/backups/laya-1"})
+    assert halted.phase == HALTED and halted.running is None and halted.next_kind == KIND_LAYA
+    assert scheduler.next_action(halted, NIGHT, lazy({KIND_LAYA: 999}), settings()).name == scheduler.HALTED_ACTION
+    resumed = scheduler.resume(halted)
+    assert resumed.halted is None and resumed.resume_from == "/srv/trainer/backups/laya-1"
+    assert scheduler.next_action(resumed, NIGHT, lazy({KIND_LAYA: 999}), settings()).name == scheduler.RUN
+
+
+def test_resuming_a_trainer_that_did_not_fail_is_refused():
+    with pytest.raises(StateError):
+        scheduler.resume(TrainerState())
+
+
+def test_a_state_saved_by_the_older_version_still_loads(tmp_path):
+    path = tmp_path / "estado.json"
+    path.write_text('{"phase": "pausa", "retries": 2, "next_kind": "laya", "notified": ["visao-0001"]}', encoding="utf-8")
+    state = load_state(path)
+    assert state.phase == "pausa" and state.next_kind == KIND_LAYA and state.notified == ("visao-0001",)
 
 
 def test_running_kind_needs_a_job():

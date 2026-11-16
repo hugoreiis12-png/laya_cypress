@@ -13,7 +13,6 @@ DEFAULT_PAUSE_SECONDS = 240.0
 MIN_PAUSE_SECONDS = 180.0
 MAX_PAUSE_SECONDS = 300.0
 DEFAULT_MIN_NEW_SAMPLES = 200
-DEFAULT_MAX_RETRIES = 3
 DEFAULT_WINDOW = "22:00-06:00"
 DEFAULT_QUOTA_WAIT_HOURS = 24.0
 DEFAULT_TEST_PERCENT = 15
@@ -55,7 +54,6 @@ class Settings:
     kinds: tuple[str, ...]
     pause_seconds: float
     min_new_samples: int
-    max_retries: int
     window: tuple[int, int]
     quota_wait_hours: float
     test_percent: int
@@ -119,7 +117,7 @@ def load(env: Mapping[str, str] | None = None) -> Settings:
         kinds=_kinds(env.get("TRAINER_KINDS", KIND_VISION)),
         pause_seconds=float(env.get("TRAINER_PAUSE_SECONDS", DEFAULT_PAUSE_SECONDS)),
         min_new_samples=int(env.get("TRAINER_MIN_NEW_SAMPLES", DEFAULT_MIN_NEW_SAMPLES)),
-        max_retries=int(env.get("TRAINER_MAX_RETRIES", DEFAULT_MAX_RETRIES)), window=window,
+        window=window,
         quota_wait_hours=float(env.get("TRAINER_QUOTA_WAIT_HOURS", DEFAULT_QUOTA_WAIT_HOURS)),
         test_percent=int(env.get("TRAINER_TEST_PERCENT", DEFAULT_TEST_PERCENT)),
         min_error_reduction=float(env.get("TRAINER_MIN_ERROR_REDUCTION", DEFAULT_MIN_ERROR_REDUCTION)),

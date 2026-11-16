@@ -1,15 +1,14 @@
-"""Pure scheduling rules: one job at a time, a pause between jobs, a night window and a quota-aware retry."""
+"""Pure scheduling rules: one job at a time, a pause between jobs, a night window, quota waits and halt on failure."""
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any
 
 from .config import MINUTES_PER_HOUR, Settings
-from .state import PAUSED, SCHEDULED, TRAINING, StateError, TrainerState
+from .state import HALTED, IDLE, PAUSED, SCHEDULED, TRAINING, StateError, TrainerState
 
-RUN, POLL, WAIT, IDLE_ACTION = "executar", "acompanhar", "esperar", "ocioso"
+RUN, POLL, WAIT, IDLE_ACTION, HALTED_ACTION = "executar", "acompanhar", "esperar", "ocioso", "parado"
 SECONDS_PER_HOUR = 3600
-BACKOFF_BASE = 2
 
 
 @dataclass(frozen=True)
@@ -56,6 +55,8 @@ def _pick_kind(preferred: str, new_samples: Mapping[str, int], settings: Setting
 def next_action(state: TrainerState, now: float, new_samples: Callable[[], Mapping[str, int]],
                 settings: Settings) -> Action:
     """The sample count is lazy: counting reads the decision log, so it only runs when a job could start."""
+    if state.halted:
+        return Action(HALTED_ACTION)
     if state.running:
         return Action(POLL)
     if now < state.wait_until:
@@ -71,21 +72,26 @@ def start_job(state: TrainerState, kind: str, job: Mapping[str, Any], now: float
 
 
 def finish_job(state: TrainerState, kind: str, now: float, settings: Settings, samples: int) -> TrainerState:
-    return replace(state, phase=PAUSED, running=None, retries=0, next_kind=following(kind, settings.kinds),
+    return replace(state, phase=PAUSED, running=None, resume_from=None, next_kind=following(kind, settings.kinds),
                    wait_until=now + settings.pause_seconds, trained_samples={**state.trained_samples, kind: samples})
 
 
-def fail_job(state: TrainerState, kind: str, now: float, settings: Settings, quota: bool) -> TrainerState:
-    """Quota exhaustion waits for the next window; any other failure retries with backoff, then moves on."""
-    if quota:
-        wait = now + settings.quota_wait_hours * SECONDS_PER_HOUR
-        return replace(state, phase=SCHEDULED, running=None, retries=0, next_kind=kind, wait_until=wait)
-    retries = state.retries + 1
-    if retries > settings.max_retries:
-        return replace(state, phase=PAUSED, running=None, retries=0, next_kind=following(kind, settings.kinds),
-                       wait_until=now + settings.pause_seconds)
-    backoff = settings.pause_seconds * BACKOFF_BASE ** retries
-    return replace(state, phase=PAUSED, running=None, retries=retries, next_kind=kind, wait_until=now + backoff)
+def wait_for_quota(state: TrainerState, kind: str, now: float, settings: Settings) -> TrainerState:
+    """A spent quota is scheduling, not a failure: the same kind runs in the next window."""
+    wait = now + settings.quota_wait_hours * SECONDS_PER_HOUR
+    return replace(state, phase=SCHEDULED, running=None, next_kind=kind, wait_until=wait)
+
+
+def halt(state: TrainerState, kind: str, failure: Mapping[str, Any]) -> TrainerState:
+    """Any job failure stops the whole trainer until someone resumes it; the failed kind runs first then."""
+    return replace(state, phase=HALTED, running=None, next_kind=kind, halted=dict(failure))
+
+
+def resume(state: TrainerState) -> TrainerState:
+    if not state.halted:
+        raise StateError("o trainer não está parado por falha")
+    backup = state.halted.get("backup")
+    return replace(state, phase=IDLE, halted=None, wait_until=0.0, resume_from=backup or None)
 
 
 def running_kind(state: TrainerState) -> str:

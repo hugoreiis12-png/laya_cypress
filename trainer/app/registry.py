@@ -66,6 +66,13 @@ class Registry:
         history = data["shadow"].get(kind) or []
         return history[-1] if history else data["baseline"].get(kind)
 
+    def versions(self) -> dict[str, dict[str, Any]]:
+        return self._load()["versions"]
+
+    def shadow_metrics(self) -> list[Metrics]:
+        """Every version currently in shadow, in registration order; a reverted one is no longer listed."""
+        return [Metrics.from_dict(record["metrics"]) for record in self.versions().values() if record["status"] == SHADOW]
+
     def metrics_of(self, version: str | None) -> Metrics | None:
         if version is None:
             return None

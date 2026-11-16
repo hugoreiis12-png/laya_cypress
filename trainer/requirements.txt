@@ -1,5 +1,6 @@
 httpx>=0.27
-kaggle>=1.7
+kaggle==2.2.5  # the gateway is written against this API; review it before upgrading
 numpy>=1.26
 opencv-python-headless>=4.9
 pytesseract>=0.3.13
+six>=1.16  # imported by kaggle's generated models but not declared by it

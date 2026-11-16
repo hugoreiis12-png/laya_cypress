@@ -1,6 +1,7 @@
 """Kaggle gateway: private dataset, one GPU kernel, output download and dataset deletion.
 
-Written against the official `kaggle` package but not yet exercised against the real service.
+Written against `kaggle` 2.2.5 (pinned): create and push report errors in the response instead of raising.
+Not yet exercised against the real service.
 """
 import json
 import shutil
@@ -48,6 +49,16 @@ def normalize_status(raw: object) -> str:
     return RUNNING
 
 
+def checked(response: Any) -> Any:
+    """kaggle 2.x returns refusals inside the response; they must stop the job like a raised error."""
+    error = getattr(response, "error", None)
+    if error:
+        raise translate(RuntimeError(str(error)))
+    if getattr(response, "invalid_dataset_sources", None):
+        raise KaggleError(f"o kernel não encontrou o dataset: {response.invalid_dataset_sources}")
+    return response
+
+
 def translate(exc: Exception) -> KaggleError:
     message = str(exc)
     if any(hint in message.lower() for hint in QUOTA_HINTS):
@@ -72,9 +83,10 @@ class KaggleClient:
     def create_dataset(self, folder: Path, slug: str) -> None:
         (folder / "dataset-metadata.json").write_text(json.dumps(dataset_metadata(self._username, slug)), encoding="utf-8")
         try:
-            self._client().dataset_create_new(folder=str(folder), public=False, quiet=True, dir_mode="zip")
+            response = self._client().dataset_create_new(folder=str(folder), public=False, quiet=True, dir_mode="zip")
         except Exception as exc:  # the library raises many types; they all become KaggleError
             raise translate(exc) from exc
+        checked(response)
 
     def push_kernel(self, folder: Path, slug: str, script: Path) -> str:
         kernel_dir = folder / "kernel"
@@ -82,9 +94,10 @@ class KaggleClient:
         shutil.copyfile(script, kernel_dir / SCRIPT_NAME)
         (kernel_dir / "kernel-metadata.json").write_text(json.dumps(kernel_metadata(self._username, slug)), encoding="utf-8")
         try:
-            self._client().kernels_push(str(kernel_dir))
+            response = self._client().kernels_push(str(kernel_dir))
         except Exception as exc:  # see create_dataset
             raise translate(exc) from exc
+        checked(response)
         return f"{self._username}/{slug}"
 
     def status(self, kernel: str) -> str:
@@ -105,6 +118,8 @@ class KaggleClient:
         if delete is None:
             raise KaggleError("esta versão do kaggle não apaga datasets: apague pelo site")
         try:
-            delete(f"{self._username}/{slug}")
+            deleted = delete(self._username, slug, no_confirm=True)
         except Exception as exc:  # see create_dataset
             raise translate(exc) from exc
+        if deleted is False:
+            raise KaggleError(f"o Kaggle não confirmou a exclusão do dataset {slug}")

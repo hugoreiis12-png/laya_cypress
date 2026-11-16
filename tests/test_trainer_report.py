@@ -92,3 +92,18 @@ def test_mailer_failure_is_a_typed_error():
 
 def test_mail_is_disabled_without_host_sender_and_recipients():
     assert not MailSettings().enabled and MailSettings("h", 465, "", "", "f@x", ("t@x",)).enabled
+
+
+def test_without_hermes_the_report_is_the_plain_text_built_by_code():
+    assert mailing.compose(REPORT, None) == fallback_text(REPORT)
+
+
+def test_the_mail_goes_out_without_hermes_when_smtp_is_configured():
+    from dataclasses import replace
+
+    from tests.trainer_support import settings
+    from trainer.app import main
+
+    mail = MailSettings("smtp", 465, "", "", "f@x", ("t@x",))
+    assert main._notifier(replace(settings(), mail=mail, hermes_url="")) is not None
+    assert main._notifier(replace(settings(), mail=MailSettings())) is None
