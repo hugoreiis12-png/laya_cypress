@@ -18,7 +18,7 @@ import numpy as np  # noqa: E402
 import onnxruntime  # noqa: E402
 from ultralytics import YOLO  # noqa: E402
 
-INPUT = next(Path("/kaggle/input").iterdir())
+INPUT = min(Path("/kaggle/input").rglob("manifest.json"), key=lambda path: len(path.parts)).parent  # Kaggle nests mounts under datasets/<owner>/
 WORK = Path("/kaggle/working")
 DATA = WORK / "dados"
 EPOCHS = 30

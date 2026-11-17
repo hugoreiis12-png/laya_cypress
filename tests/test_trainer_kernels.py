@@ -1,4 +1,5 @@
 import ast
+from pathlib import Path
 import pytest
 
 from trainer.app import cycle
@@ -57,3 +58,14 @@ def test_the_vision_kernel_writes_what_the_service_loads():
     source = (cycle.KERNELS_DIR / "train_vision.py").read_text(encoding="utf-8")
     assert '"pesos.onnx"' in source and cycle.WEIGHTS_FILES["visao"] == "pesos.onnx"
     assert '"classes"' in source and '"amostras_teste"' in source
+
+
+@pytest.mark.parametrize("script", KERNELS, ids=lambda path: path.name)
+def test_kernels_find_the_package_however_kaggle_nests_the_mount(script, tmp_path):
+    package = tmp_path / "datasets" / "owner" / "laya-visao-1"
+    package.mkdir(parents=True)
+    (package / "manifest.json").write_text("{}", encoding="utf-8")
+    line = next(row for row in script.read_text(encoding="utf-8").splitlines() if row.startswith("INPUT = "))
+    scope = {"Path": Path}
+    exec(line.replace("/kaggle/input", tmp_path.as_posix()), scope)  # noqa: S102 - runs the kernel's own line
+    assert scope["INPUT"] == package

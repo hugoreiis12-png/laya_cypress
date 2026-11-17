@@ -14,7 +14,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 BASE_REPO = "convaiinnovations/laya-multilingual"
 BASE_REVISION = "b4a904d1a2a54c822b829e24291d4b8f280fe43e"
-INPUT = next(Path("/kaggle/input").iterdir())
+INPUT = min(Path("/kaggle/input").rglob("manifest.json"), key=lambda path: len(path.parts)).parent  # Kaggle nests mounts under datasets/<owner>/
 WORK = Path("/kaggle/working")
 MAX_LENGTH, EPOCHS, BATCH_SIZE, LEARNING_RATE = 512, 4, 16, 3e-5
 VALIDATION_SHARE, SEED = 0.1, 7
