@@ -16,7 +16,7 @@ subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", *PACKAGES])
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 import onnxruntime  # noqa: E402
-from ultralytics import YOLO  # noqa: E402
+from ultralytics import YOLO, settings  # noqa: E402
 
 INPUT = min(Path("/kaggle/input").rglob("manifest.json"), key=lambda path: len(path.parts)).parent  # Kaggle nests mounts under datasets/<owner>/
 WORK = Path("/kaggle/working")
@@ -83,6 +83,7 @@ def evaluate(session: onnxruntime.InferenceSession, classes: list[str]) -> dict:
 
 
 def main() -> None:
+    settings.update({"raytune": False})  # Kaggle's ray dropped the private API ultralytics 8.3.40 calls
     split_validation()
     model = YOLO("yolov8n-cls.pt")
     model.train(data=str(DATA), epochs=EPOCHS, imgsz=CLASSIFIER_SIZE, project=str(WORK / "runs"), name="treino")

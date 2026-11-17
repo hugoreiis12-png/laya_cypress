@@ -69,3 +69,11 @@ def test_kernels_find_the_package_however_kaggle_nests_the_mount(script, tmp_pat
     scope = {"Path": Path}
     exec(line.replace("/kaggle/input", tmp_path.as_posix()), scope)  # noqa: S102 - runs the kernel's own line
     assert scope["INPUT"] == package
+
+
+def test_the_vision_kernel_turns_off_the_raytune_callback_before_training():
+    tree = ast.parse((cycle.KERNELS_DIR / "train_vision.py").read_text(encoding="utf-8"))
+    main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
+    calls = [ast.unparse(node.value) for node in main.body if isinstance(node, ast.Expr)]
+    off = calls.index("settings.update({'raytune': False})")
+    assert off < next(index for index, call in enumerate(calls) if call.startswith("model.train("))
