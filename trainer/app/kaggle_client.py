@@ -14,7 +14,8 @@ QUOTA_HINTS = ("quota", "429", "too many requests", "limit")
 STATUS_WORDS = {"complete": COMPLETE, "error": FAILED, "cancel": FAILED, "queued": RUNNING, "running": RUNNING}
 LICENSE = "CC0-1.0"
 SCRIPT_NAME = "treino.py"
-DATASET_READY = "ready"
+DATASET_READY, PENDING = "ready", "pending"
+NOT_VISIBLE_YET = (403, 404)  # a fresh dataset is denied to its own owner until Kaggle propagates it
 DATASET_WAIT_SECONDS, DATASET_POLL_SECONDS = 180, 5  # Kaggle answers 409 to a kernel pushed before its dataset is ready
 BODY_LIMIT = 300
 
@@ -99,15 +100,17 @@ class KaggleClient:
             raise translate(exc) from exc
         checked(response)
 
+    def _dataset_status(self, slug: str) -> str:
+        try:
+            return str(self._client().dataset_status(f"{self._username}/{slug}")).lower()
+        except Exception as exc:  # see create_dataset
+            if getattr(getattr(exc, "response", None), "status_code", None) in NOT_VISIBLE_YET:
+                return PENDING
+            raise translate(exc) from exc
+
     def _wait_dataset_ready(self, slug: str) -> None:
         waited = 0
-        while True:
-            try:
-                status = str(self._client().dataset_status(f"{self._username}/{slug}")).lower()
-            except Exception as exc:  # see create_dataset
-                raise translate(exc) from exc
-            if status.endswith(DATASET_READY):
-                return
+        while not (status := self._dataset_status(slug)).endswith(DATASET_READY):
             if waited >= DATASET_WAIT_SECONDS:
                 raise KaggleError(f"o dataset {slug} não ficou pronto em {DATASET_WAIT_SECONDS}s (status: {status})")
             self._sleep(DATASET_POLL_SECONDS)

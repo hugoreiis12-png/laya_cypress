@@ -11,7 +11,12 @@ class FakeApi:
         self.statuses, self.pushed = list(statuses), False
 
     def dataset_status(self, dataset):
-        return self.statuses.pop(0) if len(self.statuses) > 1 else self.statuses[0]
+        status = self.statuses.pop(0) if len(self.statuses) > 1 else self.statuses[0]
+        if isinstance(status, int):
+            error = RuntimeError(f"{status} Client Error")
+            error.response = SimpleNamespace(status_code=status, text="")
+            raise error
+        return status
 
     def dataset_create_new(self, folder, public, quiet, dir_mode):
         return SimpleNamespace(error=self.create_error)
@@ -76,3 +81,14 @@ def test_the_http_body_is_kept_in_the_error_message(tmp_path):
 
     with pytest.raises(KaggleError, match="dataset not ready"):
         KaggleClient("laya", Refusing()).push_kernel(tmp_path, "laya-visao-1", _script(tmp_path))
+
+
+def test_a_dataset_not_visible_yet_is_waited_for_instead_of_failing(tmp_path):
+    api, waits = FakeApi(statuses=(403, 403, "ready")), []
+    KaggleClient("laya", api, sleep=waits.append).push_kernel(tmp_path, "laya-visao-1", _script(tmp_path))
+    assert api.pushed and len(waits) == 2
+
+
+def test_an_unexpected_status_error_still_stops_the_job(tmp_path):
+    with pytest.raises(KaggleError):
+        KaggleClient("laya", FakeApi(statuses=(500,)), sleep=lambda _: None).push_kernel(tmp_path, "laya-visao-1", _script(tmp_path))
