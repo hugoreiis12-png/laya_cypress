@@ -14,9 +14,10 @@ QUOTA_HINTS = ("quota", "429", "too many requests", "limit")
 STATUS_WORDS = {"complete": COMPLETE, "error": FAILED, "cancel": FAILED, "queued": RUNNING, "running": RUNNING}
 LICENSE = "CC0-1.0"
 SCRIPT_NAME = "treino.py"
+KERNEL_SUFFIX = "-treino"
 DATASET_READY, PENDING = "ready", "pending"
 NOT_VISIBLE_YET = (403, 404)  # a fresh dataset is denied to its own owner until Kaggle propagates it
-DATASET_WAIT_SECONDS, DATASET_POLL_SECONDS = 180, 5  # Kaggle answers 409 to a kernel pushed before its dataset is ready
+DATASET_WAIT_SECONDS, DATASET_POLL_SECONDS = 180, 5  # a kernel pushed before its dataset is ready fails
 BODY_LIMIT = 300
 
 
@@ -40,8 +41,13 @@ def dataset_metadata(username: str, slug: str) -> dict[str, Any]:
     return {"title": slug, "id": f"{username}/{slug}", "licenses": [{"name": LICENSE}]}
 
 
+def kernel_slug(slug: str) -> str:
+    """A kernel cannot reuse its dataset's title: Kaggle shares one title namespace between them."""
+    return f"{slug}{KERNEL_SUFFIX}"
+
+
 def kernel_metadata(username: str, slug: str) -> dict[str, Any]:
-    return {"id": f"{username}/{slug}", "title": slug, "code_file": SCRIPT_NAME, "language": "python",
+    return {"id": f"{username}/{kernel_slug(slug)}", "title": kernel_slug(slug), "code_file": SCRIPT_NAME, "language": "python",
             "kernel_type": "script", "is_private": "true", "enable_gpu": "true", "enable_internet": "true",
             "dataset_sources": [f"{username}/{slug}"], "competition_sources": [], "kernel_sources": []}
 
@@ -127,7 +133,7 @@ class KaggleClient:
         except Exception as exc:  # see create_dataset
             raise translate(exc) from exc
         checked(response)
-        return f"{self._username}/{slug}"
+        return f"{self._username}/{kernel_slug(slug)}"
 
     def status(self, kernel: str) -> str:
         try:

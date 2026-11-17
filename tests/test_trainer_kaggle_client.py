@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from trainer.app.kaggle_client import KaggleClient, KaggleError, QuotaExceeded
+from trainer.app.kaggle_client import KaggleClient, KaggleError, QuotaExceeded, kernel_metadata
 
 
 class FakeApi:
@@ -92,3 +92,11 @@ def test_a_dataset_not_visible_yet_is_waited_for_instead_of_failing(tmp_path):
 def test_an_unexpected_status_error_still_stops_the_job(tmp_path):
     with pytest.raises(KaggleError):
         KaggleClient("laya", FakeApi(statuses=(500,)), sleep=lambda _: None).push_kernel(tmp_path, "laya-visao-1", _script(tmp_path))
+
+
+def test_the_kernel_never_shares_its_title_with_the_dataset(tmp_path):
+    api = FakeApi()
+    ref = KaggleClient("laya", api).push_kernel(tmp_path, "laya-visao-1", _script(tmp_path))
+    meta = kernel_metadata("laya", "laya-visao-1")
+    assert ref == "laya/laya-visao-1-treino" == meta["id"]
+    assert meta["title"] != "laya-visao-1" and meta["dataset_sources"] == ["laya/laya-visao-1"]
