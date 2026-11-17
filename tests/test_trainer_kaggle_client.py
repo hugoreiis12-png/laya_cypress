@@ -6,13 +6,18 @@ from trainer.app.kaggle_client import KaggleClient, KaggleError, QuotaExceeded
 
 
 class FakeApi:
-    def __init__(self, create_error=None, push_error=None, deleted=True):
+    def __init__(self, create_error=None, push_error=None, deleted=True, statuses=("ready",)):
         self.create_error, self.push_error, self.deleted, self.delete_args = create_error, push_error, deleted, None
+        self.statuses, self.pushed = list(statuses), False
+
+    def dataset_status(self, dataset):
+        return self.statuses.pop(0) if len(self.statuses) > 1 else self.statuses[0]
 
     def dataset_create_new(self, folder, public, quiet, dir_mode):
         return SimpleNamespace(error=self.create_error)
 
     def kernels_push(self, folder):
+        self.pushed = True
         return SimpleNamespace(error=self.push_error, invalid_dataset_sources=[])
 
     def dataset_delete(self, owner_slug, dataset_slug, no_confirm=False):
@@ -41,3 +46,33 @@ def test_the_dataset_is_deleted_by_owner_and_slug_without_an_interactive_prompt(
 def test_an_unconfirmed_deletion_is_an_error_so_the_leftover_is_reported():
     with pytest.raises(KaggleError):
         KaggleClient("laya", FakeApi(deleted=False)).delete_dataset("laya-visao-1")
+
+
+def _script(tmp_path):
+    script = tmp_path / "treino.py"
+    script.write_text("print('ok')", encoding="utf-8")
+    return script
+
+
+def test_the_kernel_is_pushed_only_after_the_dataset_is_ready(tmp_path):
+    api, waits = FakeApi(statuses=("pending", "pending", "ready")), []
+    KaggleClient("laya", api, sleep=waits.append).push_kernel(tmp_path, "laya-visao-1", _script(tmp_path))
+    assert api.pushed and len(waits) == 2
+
+
+def test_a_dataset_that_never_gets_ready_stops_the_job_without_pushing(tmp_path):
+    api = FakeApi(statuses=("pending",))
+    with pytest.raises(KaggleError, match="não ficou pronto"):
+        KaggleClient("laya", api, sleep=lambda _: None).push_kernel(tmp_path, "laya-visao-1", _script(tmp_path))
+    assert not api.pushed
+
+
+def test_the_http_body_is_kept_in_the_error_message(tmp_path):
+    class Refusing(FakeApi):
+        def kernels_push(self, folder):
+            error = RuntimeError("409 Client Error: Conflict")
+            error.response = SimpleNamespace(text='{"message":"dataset not ready"}')
+            raise error
+
+    with pytest.raises(KaggleError, match="dataset not ready"):
+        KaggleClient("laya", Refusing()).push_kernel(tmp_path, "laya-visao-1", _script(tmp_path))

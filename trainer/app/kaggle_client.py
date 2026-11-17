@@ -5,6 +5,7 @@ Not yet exercised against the real service.
 """
 import json
 import shutil
+import time
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -13,6 +14,9 @@ QUOTA_HINTS = ("quota", "429", "too many requests", "limit")
 STATUS_WORDS = {"complete": COMPLETE, "error": FAILED, "cancel": FAILED, "queued": RUNNING, "running": RUNNING}
 LICENSE = "CC0-1.0"
 SCRIPT_NAME = "treino.py"
+DATASET_READY = "ready"
+DATASET_WAIT_SECONDS, DATASET_POLL_SECONDS = 180, 5  # Kaggle answers 409 to a kernel pushed before its dataset is ready
+BODY_LIMIT = 300
 
 
 class KaggleError(RuntimeError):
@@ -60,16 +64,23 @@ def checked(response: Any) -> Any:
 
 
 def translate(exc: Exception) -> KaggleError:
-    message = str(exc)
+    message = _with_body(exc)
     if any(hint in message.lower() for hint in QUOTA_HINTS):
         return QuotaExceeded(f"cota do Kaggle esgotada: {message}")
     return KaggleError(f"falha no Kaggle: {message}")
 
 
+def _with_body(exc: Exception) -> str:
+    """The SDK keeps the refusal reason in the HTTP body, which str(exc) drops."""
+    body = str(getattr(getattr(exc, "response", None), "text", "") or "").strip()
+    return f"{exc} | {body[:BODY_LIMIT]}" if body else str(exc)
+
+
 class KaggleClient:
-    def __init__(self, username: str, api: Any = None) -> None:
+    def __init__(self, username: str, api: Any = None, sleep: Any = time.sleep) -> None:
         self._username = username
         self._api = api
+        self._sleep = sleep
 
     def _client(self) -> Any:
         if self._api is None:
@@ -88,7 +99,22 @@ class KaggleClient:
             raise translate(exc) from exc
         checked(response)
 
+    def _wait_dataset_ready(self, slug: str) -> None:
+        waited = 0
+        while True:
+            try:
+                status = str(self._client().dataset_status(f"{self._username}/{slug}")).lower()
+            except Exception as exc:  # see create_dataset
+                raise translate(exc) from exc
+            if status.endswith(DATASET_READY):
+                return
+            if waited >= DATASET_WAIT_SECONDS:
+                raise KaggleError(f"o dataset {slug} não ficou pronto em {DATASET_WAIT_SECONDS}s (status: {status})")
+            self._sleep(DATASET_POLL_SECONDS)
+            waited += DATASET_POLL_SECONDS
+
     def push_kernel(self, folder: Path, slug: str, script: Path) -> str:
+        self._wait_dataset_ready(slug)
         kernel_dir = folder / "kernel"
         kernel_dir.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(script, kernel_dir / SCRIPT_NAME)
