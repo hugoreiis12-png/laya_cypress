@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-PACKAGES = ("ultralytics==8.3.40", "onnx==1.17.0", "onnxruntime==1.20.1")
+PACKAGES = ("ultralytics==8.3.40", "onnx==1.18.0", "onnxruntime==1.20.1")  # Kaggle runs Python 3.13: onnx 1.17 has no wheel
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", *PACKAGES])
 
 import cv2  # noqa: E402
