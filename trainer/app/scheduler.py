@@ -73,7 +73,8 @@ def start_job(state: TrainerState, kind: str, job: Mapping[str, Any], now: float
 
 def finish_job(state: TrainerState, kind: str, now: float, settings: Settings, samples: int) -> TrainerState:
     return replace(state, phase=PAUSED, running=None, resume_from=None, next_kind=following(kind, settings.kinds),
-                   wait_until=now + settings.pause_seconds, trained_samples={**state.trained_samples, kind: samples})
+                   wait_until=now + settings.pause_seconds, trained_samples={**state.trained_samples, kind: samples},
+                   auto_resumes=0)
 
 
 def wait_for_quota(state: TrainerState, kind: str, now: float, settings: Settings) -> TrainerState:
@@ -82,16 +83,20 @@ def wait_for_quota(state: TrainerState, kind: str, now: float, settings: Setting
     return replace(state, phase=SCHEDULED, running=None, next_kind=kind, wait_until=wait)
 
 
-def halt(state: TrainerState, kind: str, failure: Mapping[str, Any]) -> TrainerState:
-    """Any job failure stops the whole trainer until someone resumes it; the failed kind runs first then."""
-    return replace(state, phase=HALTED, running=None, next_kind=kind, halted=dict(failure))
+def halt(state: TrainerState, kind: str, failure: Mapping[str, Any], retry_at: float = 0.0) -> TrainerState:
+    """Any job failure stops the whole trainer until it is resumed; the failed kind runs first then."""
+    return replace(state, phase=HALTED, running=None, next_kind=kind, halted=dict(failure), wait_until=retry_at)
 
 
 def resume(state: TrainerState) -> TrainerState:
     if not state.halted:
         raise StateError("o trainer não está parado por falha")
     backup = state.halted.get("backup")
-    return replace(state, phase=IDLE, halted=None, wait_until=0.0, resume_from=backup or None)
+    return replace(state, phase=IDLE, halted=None, wait_until=0.0, resume_from=backup or None, auto_resumes=0)
+
+
+def auto_resume_due(state: TrainerState, now: float, settings: Settings) -> bool:
+    return bool(state.halted) and state.auto_resumes < settings.auto_resume_max and now >= state.wait_until
 
 
 def running_kind(state: TrainerState) -> str:

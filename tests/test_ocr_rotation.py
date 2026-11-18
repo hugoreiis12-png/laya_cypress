@@ -29,7 +29,7 @@ class FakeTesseract:
     def image_to_osd(self, gray, output_type=None):
         return {"rotate": self.osd_rotation}
 
-    def image_to_data(self, gray, lang=None, output_type=None):
+    def image_to_data(self, gray, lang=None, config="", output_type=None, timeout=0):
         self.reads += 1
         count = WORDS_WHEN_READABLE if gray[0, 0] == 255 else 0
         data = {key: [0] * count for key in DATA_KEYS}
@@ -63,13 +63,13 @@ def test_readable_osd_rotation_is_kept_without_extra_reads(tesseract):
 def test_unreadable_photo_keeps_the_osd_rotation(tesseract):
     fake = tesseract(osd_rotation=180)
     result, _ = ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
-    assert result.rotation == 180 and result.text == "" and fake.reads == 2 * len(ocr.CANDIDATE_ROTATIONS)
+    assert result.rotation == 180 and result.text == "" and fake.reads == 1 + 2 * len(ocr.CANDIDATE_ROTATIONS)
 
 
 class SmallPrintTesseract(FakeTesseract):
     """Reads nothing until the image is enlarged; its word boxes then refer to the enlarged image."""
 
-    def image_to_data(self, gray, lang=None, output_type=None):
+    def image_to_data(self, gray, lang=None, config="", output_type=None, timeout=0):
         self.reads += 1
         count = WORDS_WHEN_READABLE if gray.shape[1] >= ocr.UPSCALE * WIDTH else 0
         data = {key: [0] * count for key in DATA_KEYS}
@@ -94,7 +94,7 @@ def test_a_readable_photo_is_never_zoomed(tesseract):
 class UpsideDownTesseract(FakeTesseract):
     """OSD is 180 degrees off: that orientation yields plenty of characters, but all low confidence."""
 
-    def image_to_data(self, gray, lang=None, output_type=None):
+    def image_to_data(self, gray, lang=None, config="", output_type=None, timeout=0):
         self.reads += 1
         readable = gray[0, 0] == 255
         data = {key: [0] * WORDS_WHEN_READABLE for key in DATA_KEYS}
@@ -107,7 +107,7 @@ def test_a_long_but_low_confidence_read_does_not_stop_the_search_for_the_right_o
     fake = UpsideDownTesseract(osd_rotation=180)
     monkeypatch.setitem(sys.modules, "pytesseract", fake)
     result, _ = ocr.run(photo_readable_only_at_270())
-    assert result.rotation == 270 and fake.reads == len(ocr.CANDIDATE_ROTATIONS)
+    assert result.rotation == 270 and fake.reads == len(ocr.CANDIDATE_ROTATIONS) + 2
     assert all(word.confidence >= ocr.CONFIDENT_WORD for word in result.words)
 
 
@@ -120,7 +120,7 @@ def test_a_confident_read_of_few_words_still_tries_the_other_orientations(tesser
 class ZoomedStripTesseract(FakeTesseract):
     """A strip printed sideways: unenlarged, 0 degrees gives the most noise; only 270 enlarged reads."""
 
-    def image_to_data(self, gray, lang=None, output_type=None):
+    def image_to_data(self, gray, lang=None, config="", output_type=None, timeout=0):
         self.reads += 1
         enlarged = max(gray.shape) >= ocr.UPSCALE * WIDTH
         count = WORDS_WHEN_READABLE if enlarged and gray[0, 0] == 255 else 5
@@ -143,7 +143,7 @@ class PrintSizeTesseract(FakeTesseract):
         super().__init__(osd_rotation)
         self.height = height
 
-    def image_to_data(self, gray, lang=None, output_type=None):
+    def image_to_data(self, gray, lang=None, config="", output_type=None, timeout=0):
         self.reads += 1
         count = WORDS_WHEN_READABLE * (2 if gray.shape[1] > WIDTH else 1)
         data = {key: [0] * count for key in DATA_KEYS}
@@ -168,7 +168,7 @@ def test_a_readable_page_in_normal_print_is_not_zoomed(monkeypatch):
 class StrongZoomTesseract(FakeTesseract):
     """Unreadable unenlarged; every enlarged orientation reads strongly, so the first one ends the search."""
 
-    def image_to_data(self, gray, lang=None, output_type=None):
+    def image_to_data(self, gray, lang=None, config="", output_type=None, timeout=0):
         self.reads += 1
         count = ocr.STRONG_CONFIDENT_WORDS if gray.shape[1] > WIDTH else 0
         data = {key: [0] * count for key in DATA_KEYS}
@@ -180,7 +180,7 @@ def test_a_strong_zoomed_read_ends_the_search(monkeypatch):
     fake = StrongZoomTesseract(osd_rotation=0)
     monkeypatch.setitem(sys.modules, "pytesseract", fake)
     result, _ = ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
-    assert result.rotation == 0 and fake.reads == len(ocr.CANDIDATE_ROTATIONS) + 1
+    assert result.rotation == 0 and fake.reads == len(ocr.CANDIDATE_ROTATIONS) + 2
 
 
 def test_the_zoomed_search_stops_when_its_budget_runs_out(tesseract):
@@ -190,3 +190,48 @@ def test_the_zoomed_search_stops_when_its_budget_runs_out(tesseract):
     ticks = iter([0.0, ocr.ZOOM_BUDGET_SECONDS])
     ocr._zoomed_search(image, unread, clock=lambda: next(ticks))
     assert fake.reads == 2
+
+
+class ReorientingTesseract(FakeTesseract):
+    """The layout read (psm 3) also reads the photo turned 90 degrees, better than upright; sparse reads do not."""
+
+    def image_to_data(self, gray, lang=None, config="", output_type=None, timeout=0):
+        self.reads += 1
+        upright, sideways = gray.shape[1] == WIDTH, gray.shape[1] == HEIGHT
+        if config == ocr.SPARSE_TEXT:
+            count, confidence = (ocr.MIN_CONFIDENT_WORDS if upright else 1), 90.0
+        else:
+            count, confidence = (WORDS_WHEN_READABLE if sideways else 0), 90.0
+        data = {key: [0] * count for key in DATA_KEYS}
+        data["text"], data["conf"] = ["palavra"] * count, [confidence] * count
+        return data
+
+
+def test_sparse_reads_pick_the_orientation_when_the_layout_read_also_reads_sideways(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pytesseract", ReorientingTesseract(osd_rotation=0))
+    result, upright = ocr.run(np.zeros((HEIGHT, WIDTH, 3), np.uint8))
+    assert result.rotation == 0 and upright.shape[1] == WIDTH
+
+
+class SlowSparseTesseract(FakeTesseract):
+    """Sparse reads time out (a textured background); only the zoomed layout read at 270 reads."""
+
+    def image_to_data(self, gray, lang=None, config="", output_type=None, timeout=0):
+        self.reads += 1
+        if config == ocr.SPARSE_TEXT:
+            assert timeout == ocr.SPARSE_TIMEOUT_SECONDS
+            self.sparse_reads = getattr(self, "sparse_reads", 0) + 1
+            raise RuntimeError("Tesseract process timeout")
+        enlarged = max(gray.shape) >= ocr.UPSCALE * WIDTH
+        count = WORDS_WHEN_READABLE if enlarged and gray[0, 0] == 255 else 0
+        data = {key: [0] * count for key in DATA_KEYS}
+        data["text"], data["conf"] = ["palavra"] * count, [90.0] * count
+        return data
+
+
+def test_a_sparse_read_that_times_out_hands_the_orientation_back_to_the_layout_reads(monkeypatch):
+    fake = SlowSparseTesseract(osd_rotation=0)
+    monkeypatch.setitem(sys.modules, "pytesseract", fake)
+    result, _ = ocr.run(photo_readable_only_at_270())
+    assert result.rotation == 270 and len(result.words) == WORDS_WHEN_READABLE
+    assert fake.sparse_reads == 1

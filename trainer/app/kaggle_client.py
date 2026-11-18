@@ -4,6 +4,7 @@ Written against `kaggle` 2.2.5 (pinned): create and push report errors in the re
 Not yet exercised against the real service.
 """
 import json
+import re
 import shutil
 import time
 from pathlib import Path
@@ -19,6 +20,8 @@ DATASET_READY, PENDING = "ready", "pending"
 NOT_VISIBLE_YET = (403, 404)  # a fresh dataset is denied to its own owner until Kaggle propagates it
 DATASET_WAIT_SECONDS, DATASET_POLL_SECONDS = 180, 5  # a kernel pushed before its dataset is ready fails
 BODY_LIMIT = 300
+LOG_PATTERN = "*.log"  # kernels_output saves the run log beside the output files
+EXCEPTION_LINE = re.compile(r"^[A-Za-z_][\w.]*(Error|Exception|Interrupt|Exit)\b")
 
 
 class KaggleError(RuntimeError):
@@ -68,6 +71,21 @@ def checked(response: Any) -> Any:
     if getattr(response, "invalid_dataset_sources", None):
         raise KaggleError(f"o kernel não encontrou o dataset: {response.invalid_dataset_sources}")
     return response
+
+
+def kernel_error(folder: Path) -> str | None:
+    """The last exception line the kernel wrote to stderr, read from the JSON log Kaggle returns with the output."""
+    for log_file in sorted(folder.glob(LOG_PATTERN)):
+        try:
+            entries = json.loads(log_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        lines = [line.strip() for entry in entries if isinstance(entry, dict) and entry.get("stream_name") == "stderr"
+                 for line in str(entry.get("data", "")).splitlines()]
+        errors = [line for line in lines if EXCEPTION_LINE.match(line)]
+        if errors:
+            return errors[-1][:BODY_LIMIT]
+    return None
 
 
 def translate(exc: Exception) -> KaggleError:

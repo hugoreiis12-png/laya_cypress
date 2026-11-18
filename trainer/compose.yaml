@@ -5,7 +5,7 @@ services:
       dockerfile: trainer/Dockerfile
     image: laya-trainer:local
     container_name: laya-trainer
-    restart: on-failure  # a failed job ends the process with code 0 and must stay stopped until resumed
+    restart: unless-stopped  # a failed job halts the trainer inside the process; the container itself stays up
     environment:
       HOME: /tmp
       TRAINER_ID_SECRET: ${TRAINER_ID_SECRET:?defina TRAINER_ID_SECRET no stack}
@@ -17,6 +17,8 @@ services:
       TRAINER_MIN_NEW_SAMPLES: ${TRAINER_MIN_NEW_SAMPLES:-200}
       TRAINER_TEST_PERCENT: ${TRAINER_TEST_PERCENT:-15}
       TRAINER_MIN_ERROR_REDUCTION: ${TRAINER_MIN_ERROR_REDUCTION:-0.20}
+      TRAINER_AUTO_RESUME_MAX: ${TRAINER_AUTO_RESUME_MAX:-2}
+      TRAINER_AUTO_RESUME_SECONDS: ${TRAINER_AUTO_RESUME_SECONDS:-3600}
       HERMES_URL: ${HERMES_URL:-}
       HERMES_MODEL: ${HERMES_MODEL:-hermes3:8b}
       SMTP_HOST: ${SMTP_HOST:-}

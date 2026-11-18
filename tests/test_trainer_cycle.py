@@ -34,6 +34,7 @@ class FakeGateway:
     def __init__(self, status=RUNNING, quota=False, metrics=None):
         self.state, self.quota, self.metrics = status, quota, metrics or GOOD
         self.created, self.deleted, self.pushed = [], [], []
+        self.log: list[dict] | None = None
 
     def create_dataset(self, folder, slug):
         if self.quota:
@@ -49,6 +50,9 @@ class FakeGateway:
 
     def download(self, kernel, destination):
         destination.mkdir(parents=True, exist_ok=True)
+        if self.log is not None:
+            (destination / "treino.log").write_text(json.dumps(self.log), encoding="utf-8")
+            return
         (destination / "metricas.json").write_text(json.dumps(self.metrics), encoding="utf-8")
         (destination / "pesos.onnx").write_bytes(b"pesos")
 
@@ -159,6 +163,42 @@ def test_a_failed_kernel_keeps_its_package_as_a_backup_on_the_volume(tmp_path):
     saved = tmp_path / "backups" / f"visao-{int(NIGHT)}"
     assert failure["backup"] == str(saved) and (saved / "falha.json").is_file() and (saved / "pacote").is_dir()
     assert not (tmp_path / "jobs" / f"visao-{int(NIGHT)}").exists() and gateway.deleted == gateway.created
+
+
+KERNEL_LOG = [{"stream_name": "stdout", "time": 1.0, "data": "Starting training for 30 epochs...\n"},
+              {"stream_name": "stderr", "time": 2.0, "data": "Traceback (most recent call last):\n"},
+              {"stream_name": "stderr", "time": 2.1, "data": "AttributeError: module 'ray' has no attribute 'x'\n"}]
+
+
+def fail_running_job(tmp_path, gateway=None):
+    gateway = gateway or FakeGateway()
+    cycle, clock = build(tmp_path, gateway)
+    cycle.tick()
+    gateway.state, gateway.log, clock["now"] = FAILED, KERNEL_LOG, NIGHT + 60
+    cycle.tick()
+    return cycle, clock
+
+
+def test_a_failed_kernel_names_its_error_and_keeps_its_log_in_the_backup(tmp_path):
+    fail_running_job(tmp_path)
+    failure = load_state(tmp_path / "estado.json").halted
+    assert failure["motivo"] == "o kernel falhou: AttributeError: module 'ray' has no attribute 'x'"
+    assert (Path(failure["backup"]) / "saida" / "treino.log").is_file()
+
+
+def test_a_halt_resumes_on_its_own_after_the_pause_a_limited_number_of_times(tmp_path):
+    cycle, clock = fail_running_job(tmp_path)
+    assert cycle.resume_if_due() is False
+    for attempt in range(1, cycle.settings.auto_resume_max + 1):
+        clock["now"] = load_state(tmp_path / "estado.json").wait_until
+        assert cycle.resume_if_due() is True
+        state = load_state(tmp_path / "estado.json")
+        assert state.halted is None and state.auto_resumes == attempt and state.resume_from
+        cycle.tick()
+        clock["now"] += 60
+        cycle.tick()
+    clock["now"] = load_state(tmp_path / "estado.json").wait_until
+    assert cycle.resume_if_due() is False and cycle.halted() is not None
 
 
 def test_a_resumed_job_reuses_the_backed_up_package_and_drops_the_backup_when_done(tmp_path):

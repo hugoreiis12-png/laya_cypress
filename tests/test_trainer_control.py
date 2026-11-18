@@ -62,9 +62,19 @@ def test_halt_alert_says_what_failed_and_how_to_resume_without_customer_data():
     assert KIND_VISION in subject and FAILURE["motivo"] in body and RESUME_COMMAND in body
 
 
-def test_the_entrypoint_stops_instead_of_looping_when_halted(tmp_path):
+def test_the_entrypoint_announces_a_halt_once_and_keeps_running(tmp_path, caplog):
     from tests.trainer_support import settings
     from trainer.app import main
 
     save_state(tmp_path / "estado.json", scheduler.halt(TrainerState(), KIND_VISION, FAILURE))
-    assert main._stopped_by_failure(main.build_cycle(settings(state_dir=tmp_path))) is True
+    cycle = main.build_cycle(settings(state_dir=tmp_path))
+    announced = main._announce_halt(cycle, None)
+    assert announced == FAILURE["backup"] and main._announce_halt(cycle, announced) == announced
+    assert sum("trainer parado" in record.message for record in caplog.records) == 1
+
+
+def test_a_manual_resume_gives_back_the_automatic_resumes(tmp_path):
+    halted = replace(scheduler.halt(TrainerState(), KIND_VISION, FAILURE), auto_resumes=2)
+    save_state(tmp_path / "estado.json", halted)
+    control.run(["retomar"], tmp_path)
+    assert load_state(tmp_path / "estado.json").auto_resumes == 0

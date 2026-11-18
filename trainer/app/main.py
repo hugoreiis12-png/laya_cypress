@@ -34,25 +34,30 @@ def build_cycle(settings: config.Settings) -> Cycle:
                  Registry(settings.state_dir / "registro"), _notifier(settings), _alerter(settings))
 
 
-def _stopped_by_failure(cycle: Cycle) -> bool:
+def _announce_halt(cycle: Cycle, announced: str | None) -> str | None:
+    """Logs a halt once, not on every tick; returns the backup of the halt it announced."""
     failure = cycle.halted()
     if failure is None:
-        return False
-    log.error("trainer parado por falha em %s (%s); backup em %s. Para retomar: %s",
-              failure.get("tipo"), failure.get("motivo"), failure.get("backup"), RESUME_COMMAND)
-    return True
+        return None
+    if failure.get("backup") != announced:
+        log.error("trainer parado por falha em %s (%s); backup em %s. Para retomar: %s",
+                  failure.get("tipo"), failure.get("motivo"), failure.get("backup"), RESUME_COMMAND)
+    return failure.get("backup")
 
 
 def main() -> None:
-    """Returns (exit code 0) when a job fails, so the on-failure restart policy leaves the container stopped."""
+    """Never returns: a halted trainer stays up, keeps its heartbeat and waits for an automatic or manual resume."""
     logging.basicConfig(level="INFO", format="%(asctime)s %(levelname)s %(name)s %(message)s")
     settings = config.load()
     cycle = build_cycle(settings)
     heartbeat = settings.state_dir / HEARTBEAT_FILE
     heartbeat.parent.mkdir(parents=True, exist_ok=True)
-    while not _stopped_by_failure(cycle):
+    announced = None
+    while True:
         try:
+            cycle.resume_if_due()
             cycle.tick()
+            announced = _announce_halt(cycle, announced)
         except Exception:  # the loop must survive one bad tick; the failure is logged with its traceback
             log.exception("falha no ciclo; tentando de novo no próximo")
         heartbeat.write_text(str(time.time()), encoding="utf-8")

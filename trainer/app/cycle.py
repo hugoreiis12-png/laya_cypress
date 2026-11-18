@@ -11,7 +11,7 @@ from typing import Any, Protocol
 from . import backup, gate, scheduler, takeover
 from .alerts import halt_message
 from .config import Settings
-from .kaggle_client import COMPLETE, FAILED, JobGateway, KaggleError, QuotaExceeded
+from .kaggle_client import COMPLETE, FAILED, JobGateway, KaggleError, QuotaExceeded, kernel_error
 from .mailing import MailError
 from .metrics import Metrics, MetricsError, from_kernel
 from .registry import Registry, RegistryError
@@ -54,6 +54,17 @@ class Cycle:
     def halted(self) -> dict[str, Any] | None:
         return load_state(self._state_path).halted
 
+    def resume_if_due(self) -> bool:
+        """A halt resumes on its own a limited number of times, each after a pause; then it waits for an operator."""
+        state = load_state(self._state_path)
+        if not scheduler.auto_resume_due(state, self.clock(), self.settings):
+            return False
+        attempt = state.auto_resumes + 1
+        log.warning("retomada automática %d de %d após falha em %s", attempt, self.settings.auto_resume_max,
+                    (state.halted or {}).get("tipo"))
+        save_state(self._state_path, replace(scheduler.resume(state), auto_resumes=attempt))
+        return True
+
     def tick(self) -> str:
         now = self.clock()
         self._announce_pending(now)
@@ -94,8 +105,21 @@ class Cycle:
             return
         if status == COMPLETE:
             self._complete(state, job, now)
-        elif status == FAILED or now - job["started_at"] > KERNEL_TIMEOUT_SECONDS:
-            self._abort(state, job["kind"], now, job, KaggleError("o kernel falhou ou passou do tempo"))
+        elif status == FAILED:
+            self._abort(state, job["kind"], now, job, KaggleError(self._kernel_failure(job)))
+        elif now - job["started_at"] > KERNEL_TIMEOUT_SECONDS:
+            self._abort(state, job["kind"], now, job, KaggleError("o kernel passou do tempo"))
+
+    def _kernel_failure(self, job: Mapping[str, Any]) -> str:
+        """Keeps the kernel log in the job folder, which becomes the backup, and names the error it ended with."""
+        output = Path(job["workdir"]) / "saida"
+        try:
+            self.gateway.download(job["kernel"], output)
+        except KaggleError as exc:
+            log.warning("log do kernel %s indisponível: %s", job["kernel"], exc)
+            return "o kernel falhou (log indisponível)"
+        error = kernel_error(output)
+        return f"o kernel falhou: {error}" if error else "o kernel falhou (sem exceção no log)"
 
     def _complete(self, state: TrainerState, job: dict[str, Any], now: float) -> None:
         try:
@@ -163,7 +187,7 @@ class Cycle:
             return
         log.error("job %s falhou, trainer parado: %s", kind, exc)
         failure = backup.save(self.settings.state_dir, kind, job, str(exc), now)
-        save_state(self._state_path, scheduler.halt(state, kind, failure))
+        save_state(self._state_path, scheduler.halt(state, kind, failure, now + self.settings.auto_resume_seconds))
         self._warn(failure)
 
     def _warn(self, failure: Mapping[str, Any]) -> None:

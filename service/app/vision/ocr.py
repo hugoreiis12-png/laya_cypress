@@ -25,6 +25,8 @@ STRONG_CONFIDENT_WORDS = 2 * MIN_CONFIDENT_WORDS  # a zoomed read this good ends
 ZOOM_BUDGET_SECONDS = 5.0  # the zoomed search must leave the judge room inside the 25 s review deadline
 ZOOM_TURNS = (0, 90, 270, 180)  # from the best unzoomed orientation: itself, its perpendiculars, upside down last
 FULL_TURN = 360
+SPARSE_TEXT = "--psm 11"  # words without page layout: unlike psm 3 it never re-orients sideways text by itself
+SPARSE_TIMEOUT_SECONDS = 1.5  # measured 17/11: a strip read takes 0.4 s, a woven background 20 s of noise
 
 
 def _words(data: dict[str, list[Any]]) -> list[tuple[tuple[int, int, int], Word]]:
@@ -64,12 +66,14 @@ def _unscale(data: dict[str, list[Any]], scale: float) -> dict[str, list[Any]]:
     return {**data, **{key: [round(int(value) / scale) for value in data[key]] for key in BOX_KEYS}}
 
 
-def _read(image: np.ndarray, rotation: int, scale: float = 1.0) -> tuple[OcrResult, np.ndarray]:
+def _read(image: np.ndarray, rotation: int, scale: float = 1.0, config: str = "",
+          timeout: float = 0) -> tuple[OcrResult, np.ndarray]:
     import pytesseract
 
     upright = rotate(image, rotation)
     seen = upright if scale == 1 else cv2.resize(upright, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-    data = pytesseract.image_to_data(to_gray(seen), lang=LANG, output_type=pytesseract.Output.DICT)
+    data = pytesseract.image_to_data(to_gray(seen), lang=LANG, config=config, timeout=timeout,
+                                     output_type=pytesseract.Output.DICT)
     return from_tesseract_data(_unscale(data, scale), rotation), upright
 
 
@@ -115,16 +119,36 @@ def _zoomed_search(image: np.ndarray, best: tuple[OcrResult, np.ndarray],
     return best
 
 
+def _sparse_vote(image: np.ndarray, preferred: int) -> tuple[OcrResult, np.ndarray] | None:
+    """The sparse read with most confident words; None if one timed out: the right, text-rich turn is the slowest."""
+    reads = []
+    for rotation in CANDIDATE_ROTATIONS:
+        try:
+            reads.append(_read(image, rotation, config=SPARSE_TEXT, timeout=SPARSE_TIMEOUT_SECONDS))
+        except RuntimeError:  # pytesseract reports its timeout, like any Tesseract failure, as a RuntimeError
+            return None
+    return max(reads, key=lambda read: (_confident_words(read), read[0].rotation == preferred))
+
+
+def _orientation(image: np.ndarray, first: tuple[OcrResult, np.ndarray]) -> tuple[OcrResult, np.ndarray]:
+    vote = _sparse_vote(image, first[0].rotation)
+    if vote is None:
+        others = [_read(image, rotation) for rotation in CANDIDATE_ROTATIONS if rotation != first[0].rotation]
+        return max([first, *others], key=_quality)  # a tie keeps the orientation OSD chose
+    turn = vote[0].rotation
+    return _better(first if turn == first[0].rotation else _read(image, turn), vote)
+
+
 def run(image: np.ndarray) -> tuple[OcrResult, np.ndarray]:
     """Returns the OCR result and the upright image its word boxes refer to.
 
-    A read that is short or mostly low-confidence (wrong orientation) tries every rotation, then every zoomed one.
+    A short or low-confidence read lets sparse reads pick the orientation (psm 3 scores sideways text as readable
+    too) or, if one timed out, the layout reads; then it tries the zoomed orientations.
     """
     first = _read(image, detect_rotation(to_gray(image)))
     if _readable(first):
         return _sharpened(image, first)
-    others = [_read(image, rotation) for rotation in CANDIDATE_ROTATIONS if rotation != first[0].rotation]
-    best = max([first, *others], key=_quality)  # a tie keeps the orientation OSD chose
+    best = _orientation(image, first)
     if _readable(best):
         return _sharpened(image, best)
     return _zoomed_search(image, best)

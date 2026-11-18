@@ -14,8 +14,8 @@ def halt_message(failure: Mapping[str, Any]) -> tuple[str, str]:
         f"Motivo: {failure['motivo']}",
         f"Dataset do job: {job.get('dataset', 'n/d')}. Kernel: {job.get('kernel', 'n/d')}.",
         f"Backup no volume do trainer: {failure['backup']}",
-        "Nada mais roda até a retomada. Depois de corrigir a causa, na VM .160:",
+        "O container segue no ar e tenta de novo sozinho enquanto houver retomadas automáticas.",
+        "Esgotadas, nada mais roda até a retomada manual. Depois de corrigir a causa, na VM .160:",
         RESUME_COMMAND,
-        "e então: docker start laya-trainer",
     ])
     return subject, body

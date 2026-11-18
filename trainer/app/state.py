@@ -26,6 +26,7 @@ class TrainerState:
     halted: dict[str, Any] | None = None  # the failed job and where its backup is; nothing runs until it is resumed
     resume_from: str | None = None  # backup folder whose package the next job reuses
     mail_retry_at: float = 0.0
+    auto_resumes: int = 0  # automatic resumes since the last success or manual resume
 
 
 def load_state(path: Path) -> TrainerState:

@@ -57,7 +57,8 @@ def resume(root: Path) -> list[str]:
     resumed = scheduler.resume(load_state(path))
     save_state(path, resumed)
     origin = resumed.resume_from or "um pacote novo"
-    return [f"retomada liberada; o próximo job de {resumed.next_kind} usa {origin}", "suba o trainer: docker start laya-trainer"]
+    return [f"retomada liberada; o próximo job de {resumed.next_kind} usa {origin}",
+            "o trainer no ar segue no próximo tick (se o container estiver parado: docker start laya-trainer)"]
 
 
 def _parser() -> argparse.ArgumentParser:
