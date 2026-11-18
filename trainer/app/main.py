@@ -26,7 +26,11 @@ def _notifier(settings: config.Settings) -> Callable[[dict[str, Any]], None] | N
 
 
 def _alerter(settings: config.Settings) -> Callable[[str, str], None] | None:
-    return Mailer(settings.mail).send if settings.mail.enabled else None
+    """A failure goes only to the alert recipients, never to the report list."""
+    if not settings.mail.enabled:
+        return None
+    mailer = Mailer(settings.mail)
+    return lambda subject, body: mailer.send(subject, body, settings.mail.alert_recipients)
 
 
 def build_cycle(settings: config.Settings) -> Cycle:

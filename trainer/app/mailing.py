@@ -36,7 +36,7 @@ class TextWriter(Protocol):
 
 
 class MailSender(Protocol):
-    def send(self, subject: str, body: str) -> None: ...
+    def send(self, subject: str, body: str, recipients: tuple[str, ...] | None = None) -> None: ...
 
 
 class HermesWriter:
@@ -70,10 +70,11 @@ class Mailer:
         factory = smtplib.SMTP_SSL if settings.port == SMTP_SSL_PORT else smtplib.SMTP
         return factory(settings.host, settings.port, timeout=SMTP_TIMEOUT)
 
-    def send(self, subject: str, body: str) -> None:
+    def send(self, subject: str, body: str, recipients: tuple[str, ...] | None = None) -> None:
         settings = self._settings
         message = EmailMessage()
-        message["Subject"], message["From"], message["To"] = subject, settings.sender, ", ".join(settings.recipients)
+        message["Subject"], message["From"] = subject, settings.sender
+        message["To"] = ", ".join(recipients or settings.recipients)
         message.set_content(body)
         try:
             with self._open() as server:

@@ -25,6 +25,7 @@ DEFAULT_AUTO_RESUME_SECONDS = 3600.0
 DEFAULT_HERMES_MODEL = "hermes3:8b"
 DEFAULT_HERMES_TIMEOUT = 60.0
 DEFAULT_SMTP_PORT = 465
+DEFAULT_ALERT_TO = "hugo.reis@grupocampanha.com.br"  # failures go only to the maintainer; reports go to REPORT_TO
 MIN_SECRET_CHARS = 16
 MINUTES_PER_HOUR = 60
 MAX_PERCENT = 100
@@ -43,6 +44,7 @@ class MailSettings:
     password: str = ""
     sender: str = ""
     recipients: tuple[str, ...] = ()
+    alert_recipients: tuple[str, ...] = (DEFAULT_ALERT_TO,)
 
     @property
     def enabled(self) -> bool:
@@ -87,11 +89,17 @@ def _kinds(raw: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in raw.split(",") if item.strip())
 
 
+def _addresses(raw: str) -> tuple[str, ...]:
+    return tuple(item.strip() for item in raw.split(",") if item.strip())
+
+
 def _mail(env: Mapping[str, str]) -> MailSettings:
-    recipients = tuple(item.strip() for item in env.get("REPORT_TO", "").split(",") if item.strip())
+    recipients = _addresses(env.get("REPORT_TO", ""))
+    alert_recipients = _addresses(env.get("ALERT_TO", "")) or (DEFAULT_ALERT_TO,)
     return MailSettings(host=env.get("SMTP_HOST", ""), port=int(env.get("SMTP_PORT", DEFAULT_SMTP_PORT)),
                         user=env.get("SMTP_USER", ""), password=env.get("SMTP_PASSWORD", ""),
-                        sender=env.get("SMTP_FROM", ""), recipients=recipients)
+                        sender=env.get("SMTP_FROM", ""), recipients=recipients,
+                        alert_recipients=alert_recipients)
 
 
 def _problems(env: Mapping[str, str]) -> list[str]:

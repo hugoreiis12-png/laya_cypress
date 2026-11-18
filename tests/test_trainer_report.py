@@ -107,3 +107,39 @@ def test_the_mail_goes_out_without_hermes_when_smtp_is_configured():
     mail = MailSettings("smtp", 465, "", "", "f@x", ("t@x",))
     assert main._notifier(replace(settings(), mail=mail, hermes_url="")) is not None
     assert main._notifier(replace(settings(), mail=MailSettings())) is None
+
+
+def test_failure_alert_goes_only_to_the_alert_recipients():
+    from dataclasses import replace
+
+    from tests.trainer_support import settings
+    from trainer.app import main
+
+    sent = []
+
+    class Spy:
+        def __init__(self, _settings): ...
+        def send(self, subject, body, recipients=None):
+            sent.append(recipients)
+
+    mail = MailSettings("smtp", 465, "", "", "f@x", ("a@x", "b@x"), ("dev@x",))
+    original, main.Mailer = main.Mailer, Spy
+    try:
+        main._alerter(replace(settings(), mail=mail))("assunto", "corpo")
+    finally:
+        main.Mailer = original
+    assert sent == [("dev@x",)]
+
+
+def test_alert_recipients_default_to_the_maintainer_and_ignore_report_to():
+    from trainer.app.config import DEFAULT_ALERT_TO, _mail
+
+    assert _mail({"REPORT_TO": "a@x,b@x"}).alert_recipients == (DEFAULT_ALERT_TO,)
+    assert _mail({"ALERT_TO": "z@x"}).alert_recipients == ("z@x",)
+
+
+def test_mailer_overrides_the_recipients_when_given():
+    log = []
+    settings = MailSettings("smtp.local", 587, "", "", "laya@x", ("a@x", "b@x"))
+    mailing.Mailer(settings, lambda host, port, timeout: FakeSmtp(log)).send("s", "c", ("dev@x",))
+    assert ("mail", "dev@x", "s") in log
